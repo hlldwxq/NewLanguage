@@ -30,74 +30,93 @@
 #include <sstream>
 #include <fstream>
 #include "AST.h"
+#include "main.h"
 
-
-enum Token
+enum class Token
 {
-	tok_eof = -1,
+	tok_eof,
 
 	// Function
-	tok_def = -2,
-    tok_void = -3,
-    tok_return = -4,
+	tok_def ,
+    tok_void,
+    tok_return ,
 
-	tok_identifier = -5,
-	tok_number = -6,
+	tok_identifier,
+	tok_number,
 
 	// control
-	tok_if = -7,
-	tok_then = -8,
-	tok_else = -9,
-	tok_for = -10,
-	tok_while = -11,
-    tok_break = -12,
+	tok_if ,
+	tok_then ,
+	tok_else,
+	tok_for ,
+	tok_while ,
+    tok_break,
 
 	//array
-	tok_new = -13,
-    tok_null = -14,
+	tok_new ,
+    tok_null,
 
 	//type
-	tok_i1 = -15,
-	tok_i8 = -16,
-	tok_i16 = -17,
-	tok_i32 = -18,
-	tok_i64 = -19,
-	tok_i128 = -20,
+	tok_i1 ,
+	tok_i8 ,
+	tok_i16,
+	tok_i32,
+	tok_i64,
+	tok_i128,
 
-    tok_true = -21,
-    tok_false = -22,
+    tok_true,
+    tok_false,
 
 	//symbol
-	equalSign = -23,  //==
-	notEqual = -24,   //!=
-	lessEqual = -25,  //<=
-	moreEqual = -26,  //>=
-// other symbol  ASCII : + - * / ( ) [ ] { } , ! & | > < =
+	equal_sign,  //==
+	not_equal,   //!=
+	less_equal,  //<=
+	more_equal,  //>=
+
+	plus_sign,   //+
+	minus,       //-
+	star,        //*
+	disvision,   // /
+	left_paren,  // (
+	right_paren, // )
+	left_square_bracket,  // [
+	right_square_bracket, // ]
+	left_brace,           // {
+	right_brace,          // }
+	comma,                // ,
+	exclamation_point,    // !
+	andT,                 // &
+	orT,                  // |
+	more_sign,            // >
+	less_sign,            // <
+	assignment,           // =
+	semicolon,			  // ;
+	error_token
 };
 
-static std::string fileStr;
+class Parser {
 static int lineN = 1;
-static int CurTok;
+static Token CurTok;
 
 static int charIndex = 0;
 static std::string IdentifierStr; // Filled in if tok_identifier
-static long long NumVal;		   // Filled in if tok_number
+static long long NumVal;		  // Filled in if tok_number
 // although -9 will be regarded as two tokens, - and 9
 // I still use signed num instead of unsigned 
 
-std::map<int, int> BinopPrecedence;
+std::map<Token, int> BinopPrecedence;
 void initPrecedence(){
-    BinopPrecedence['='] = 2;         // =
-    BinopPrecedence['<'] = 10;        // <
-    BinopPrecedence['>'] = 10;        // >
-    BinopPrecedence[lessEqual] = 10;  // <=
-    BinopPrecedence[moreEqual] = 10;  // >=
-    BinopPrecedence[notEqual] = 10;   // ==
-    BinopPrecedence[equalSign] = 10;  // ==
-    BinopPrecedence['+'] = 20;        // +
-    BinopPrecedence['-'] = 20;	      // -
-    BinopPrecedence['*'] = 40; 	      // *
-    BinopPrecedence['/'] = 40;        // /
+    BinopPrecedence[Token::assignment] = 2;         // =
+    BinopPrecedence[Token::less_sign] = 10;        // <
+    BinopPrecedence[Token::more_sign] = 10;        // >
+    BinopPrecedence[Token::less_equal] = 10;  // <=
+    BinopPrecedence[Token::more_equal] = 10;  // >=
+    BinopPrecedence[Token::not_equal] = 10;   // ==
+    BinopPrecedence[Token::equal_sign] = 10;  // ==
+    BinopPrecedence[Token::plus_sign] = 20;        // +
+    BinopPrecedence[Token::minus] = 20;	      // -
+    BinopPrecedence[Token::star] = 40; 	      // *
+    BinopPrecedence[Token::disvision] = 40;        // /
 }
 
 void ErrorQ(const char * info, int line){
@@ -148,17 +167,24 @@ int getChar(){
 }
 
 /// gettok - Return the next token from standard input.
-static int gettok()
+static Token gettok()
 {
 	
 	static int LastChar = ' ';
 
 	// Skip any whitespace.
 	while (isspace(LastChar)){
-        if(LastChar == '\n' || LastChar == '\r' || LastChar == '\r\n'){
-            lineN++;
-        }
-		LastChar = getChar(); 
+        if(LastChar == '\n' || LastChar == '\r'){
+			lineN++;
+			int c = LastChar;
+			LastChar = getChar();
+			if(c == '\r' && LastChar == '\n'){
+				LastChar = getChar();
+			}
+            
+        }else{
+			LastChar = getChar(); 
+		}
     }
 
 	// identifier: [a-zA-Z][a-zA-Z0-9]*
@@ -168,54 +194,58 @@ static int gettok()
 			IdentifierStr += LastChar;
 
 		if (IdentifierStr == "def")
-			return tok_def;
+			return Token::tok_def;
         if (IdentifierStr == "void")
-			return tok_void;
+			return Token::tok_void;
         if (IdentifierStr == "return")
-			return tok_return;
+			return Token::tok_return;
 		if (IdentifierStr == "if")
-			return tok_if;
+			return Token::tok_if;
 		if (IdentifierStr == "then")
-			return tok_then;
+			return Token::tok_then;
 		if (IdentifierStr == "else")
-			return tok_else;
+			return Token::tok_else;
 		if (IdentifierStr == "for")
-			return tok_for;
+			return Token::tok_for;
 		if (IdentifierStr == "while")
-			return tok_while;
+			return Token::tok_while;
         if (IdentifierStr == "break")
-			return tok_break;
+			return Token::tok_break;
 		if(IdentifierStr == "new")
-			return tok_new;
+			return Token::tok_new;
         if(IdentifierStr == "null")
-            return tok_null;
+            return Token::tok_null;
 		if(IdentifierStr == "int1")
-			return tok_i1;
+			return Token::tok_i1;
 		if(IdentifierStr == "int8")
-			return tok_i8;
+			return Token::tok_i8;
 		if(IdentifierStr == "int16")
-			return tok_i16;
+			return Token::tok_i16;
 		if(IdentifierStr == "int32")
-			return tok_i32;
+			return Token::tok_i32;
 		if(IdentifierStr == "int64")
-			return tok_i64;
+			return Token::tok_i64;
 		if(IdentifierStr == "int128")
-			return tok_i128;
+			return Token::tok_i128;
 		if(IdentifierStr == "true")
-			return tok_true;
+			return Token::tok_true;
 		if(IdentifierStr == "false")
-			return tok_false;	
-		return tok_identifier;
+			return Token::tok_false;	
+		return Token::tok_identifier;
 	}
 
-    // Number: [0-9.]+
-	if (isdigit(LastChar) || LastChar == '.'){ 
+    // Number: [0-9]+
+	if (isdigit(LastChar)){ 
 		std::string NumStr;
 		do
 		{
 			NumStr += LastChar;
 			LastChar = getChar();
 		} while (isdigit(LastChar));
+
+		if(isalpha(LastChar)){ // 5657t is unvalid
+			return Token::error_token;
+		}
 
 		//cover string to number
 		NumVal = string2longlong(NumStr);
@@ -230,42 +260,81 @@ static int gettok()
 		LastChar = getChar();
 		if(LastChar == '='){
 			LastChar = getChar();
-			return equalSign;
+			return Token::equal_sign;
 		}else{
-			return '=';
+			return Token::assignment;
 		}
 		break;
 	case '!':
 		LastChar = getChar();
 		if(LastChar == '='){
 			LastChar = getChar();
-			return notEqual;
+			return Token::not_equal;
 		}else{
-			return '!';
+			return Token::exclamation_point;
 		}
 		break;
 	case '>':
 	LastChar = getChar();
 		if(LastChar == '='){
 			LastChar = getChar();
-			return moreEqual;
+			return Token::more_equal;
 		}else{
-			return '>';
+			return Token::more_sign ;
 		}
 		break;
 	case '<':
 		LastChar = getChar();
 		if(LastChar == '='){
 			LastChar = getChar();
-			return lessEqual;
+			return Token::less_equal;
 		}else{
-			return '<';
+			return Token::less_sign ;
 		}
 		break;
-	}
-
-	if (LastChar == '#')
-	{
+	case '+': 
+		return Token::plus_sign;
+		break;   					//+
+	case '-': 
+		return Token::minus;
+		break;      			    //-
+	case '*': 
+		return Token::star;
+		break;      			    //*
+	case '/': 
+		return Token::disvision;
+		break;  				    // /
+	case '(': 
+		return Token::left_paren;
+		break;  					// (
+	case ')': 
+		return Token::right_paren;
+		break; 						// )
+	case '[': 
+		return Token::left_square_bracket;
+		break; 					    // [
+	case ']': 
+		return Token::right_square_bracket;
+		break; 						// ]
+	case '{': 
+		return Token::left_brace;
+		break;          		    // {
+	case '}': 
+		return Token::right_brace;
+		break;         			    // }
+	case ',': 
+		return Token::comma;
+		break;              	    // ,
+	case '&': 
+		return Token::andT;
+		break;                	    // &
+	case '|': 
+		return Token::orT;
+		break;                      // |
+	case ';': 
+		return Token::semicolon;
+		break;				   	    // ;
+	case '#':
 		// Comment until end of line.
 		do
 			LastChar = getChar();
@@ -273,24 +342,34 @@ static int gettok()
 
 		if (LastChar != EOF)
 			return gettok();
+
+		break;
+	default:
+		return Token::error_token;
 	}
 
 	// Check for end of file.  Do not eat the EOF.
 	if (LastChar == EOF)
-		return tok_eof;
+		return Token::tok_eof;
 
-    // other symbol return their ascii code
-	int ThisChar = LastChar;
-	LastChar = getChar();
-	return ThisChar;
+    // other symbol return error
+	return Token::error_token;
 }
 
-int getNextToken() {   
-    return CurTok = gettok(); 
+Token getNextToken() {   
+    CurTok = gettok();
+	if(CurTok == Token::error_token){
+		ErrorQ("unvalid character or word",lineN);
+		exit(1);
+	} 
+	return CurTok;
 }
+};
 
 //other functions do need to be used in other files
-static std::unique_ptr<ExprAST> ParseExpression();
+static std::unique_ptr<ExprAST> ParseExpr();
 static std::unique_ptr<CallExprAST> ParseCallExpr(std::string functionName);
 static std::unique_ptr<ArrayIndexExprAST> ParseArrayIndexExpr(std::string arrayName);
 static std::unique_ptr<CommandAST> ParseCommand();
+static std::unique_ptr<DefAST> ParseVarOrArrDef(bool global);
+static std::unique_ptr<BlockAST> ParseBlock();

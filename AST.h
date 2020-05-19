@@ -20,34 +20,114 @@
 using namespace llvm;
 //using namespace llvm::orc;
 
-enum ASTType{
-	variable = -1,
-	arrayIndex = -2,
-	number = -3,
-	call = -4,
+enum class ASTType{
+	variable,
+	arrayIndex,
+	number,
+	call,
 
-	unary = -5,
-	binary = -6,
+	unary,
+	binary,
 	
-	ifT = -7,
-	forT = -8,
-    whileT = -9,
-    breakT = -10,
-	varDef = -11,
-	arrayDef = -12,
-    assign = -13,
-	function = -14,
-	proto = -15,
-	body = -16,
-	returnT = -17,
-    nullT = -18
+	ifT,
+	forT,
+    whileT,
+    breakT,
+    newT,
+	varDef,
+	arrayDef,
+    assign,
+	function,
+	proto,
+	body,
+	returnT,
+    nullT
 };
+
+enum class Operators{
+    //symbol
+	equal_sign,  //==
+	not_equal,   //!=
+	less_equal,  //<=
+	more_equal,  //>=
+	plus_sign,   //+
+	minus,       //-
+	star,        //*
+	disvision,   // /
+	left_paren,  // (
+	right_paren, // )
+	left_square_bracket,  // [
+	right_square_bracket, // ]
+	left_brace,           // {
+	right_brace,          // }
+	comma,                // ,
+	exclamation_point,    // !
+	andT,                  // &
+	orT,                   // |
+	more_sign,            // >
+	less_sign,            // <
+	assignment,           // =
+};
+
+enum class VarType{
+    //type
+	int1,
+	int8,
+	int16,
+	int32,
+	int64,
+	int128
+};
+
+enum class TypeType{
+    intType,
+    pointerType,
+    voidType,
+    errorType
+};
+class ReturnType{
+    protected:
+    TypeType typeOfType;
+    public:
+    ReturnType(TypeType t){
+        typeOfType = t;
+    }
+    TypeType getType(){
+        return typeOfType;
+    }
+};
+
+class VarAndPointType : public ReturnType{
+    public:
+        VarAndPointType(TypeType t):ReturnType(t){}
+};
+
+class voidType : public ReturnType{
+    public:
+        voidType():ReturnType(TypeType::voidType){}
+};
+
+class IntType : public VarAndPointType{
+    VarType type;
+public:
+    IntType(VarType type1) : VarAndPointType(TypeType::intType){
+        type = type1;
+    }
+};
+
+class PointType : public VarAndPointType{
+    VarAndPointType elementType;
+public:
+    PointType(const VarAndPointType& elementType1) : VarAndPointType(TypeType::pointerType),elementType(elementType1){
+    }
+};
+
 //Base class
 class AST{
 protected:
-    int astType;
+    ASTType astType;
 public:
-    AST(int type){
+    AST(ASTType type){
         astType = type;
     }
     int getType();
@@ -55,32 +135,32 @@ public:
 
 // Expression
 class ExprAST : public AST{
-protected:
-    bool paren;
 public:
-    ExprAST(int type):AST(type){
-        paren = false;
+    ExprAST(ASTType type):AST(type){
     }
-    void hasParen(){
-        paren = true;
-    }
-    bool wrapInParen(){
-        return paren;
-    }
+    
     Value* codegen();
 };
 
 // Commands
 class CommandAST : public AST{
 public:
-    CommandAST(int type):AST(type){}
+    CommandAST(ASTType type):AST(type){}
     Value* codegen();
+};
+
+// structure
+class StructureAST : public AST{
+public:
+    StructureAST(ASTType type):AST(type){}
+
+    GlobalObject* structureCodegen();
 };
 
 // LeftValue  is also expression
 class LeftValueAST : public ExprAST{
 public:
-    LeftValueAST(int type):ExprAST(type){}
+    LeftValueAST(ASTType type):ExprAST(type){}
 };
 
 // Variable
@@ -95,14 +175,14 @@ public:
 
 // arrayIndex
 class ArrayIndexExprAST: public LeftValueAST{
-    std::string arrayName;
-    std::vector<std::unique_ptr<ExprAST>> indexs;
+    std::unique_ptr<ExprAST> pointer; 
+    std::unique_ptr<ExprAST> index;
 public:
-    ArrayIndexExprAST(const std::string &arrayName1, std::vector<std::unique_ptr<ExprAST>> indexs1)
+    ArrayIndexExprAST(std::unique_ptr<ExprAST> p, std::unique_ptr<ExprAST> index1)
                      : LeftValueAST(ASTType::arrayIndex)
     {
-        arrayName = arrayName1;
-        indexs = std::move(indexs1);
+        pointer = std::move(p);
+        index = std::move(index1);
     }
 };
 
@@ -140,11 +220,11 @@ public:
 /// UnaryExprAST - Expression class for a unary operator.
 class UnaryExprAST : public ExprAST
 {
-	int opCode;					  
+	Operators opCode;					  
 	std::unique_ptr<ExprAST> Operand; 
 
 public:
-	UnaryExprAST(int opCode1, std::unique_ptr<ExprAST> Operand1) : ExprAST(ASTType::unary) {
+	UnaryExprAST(Operators opCode1, std::unique_ptr<ExprAST> Operand1) : ExprAST(ASTType::unary) {
         opCode = opCode1;
         Operand = move(Operand1);
     }
@@ -153,30 +233,46 @@ public:
 /// BinaryExprAST - Expression class for a binary operator.
 class BinaryExprAST : public ExprAST
 {
-	int op;
+	Operators op;
 	std::unique_ptr<ExprAST> LHS, RHS;
 
 public:
-	BinaryExprAST(int OpCode, std::unique_ptr<ExprAST> lhs, std::unique_ptr<ExprAST> rhs) : ExprAST(ASTType::binary){
+	BinaryExprAST(Operators OpCode, std::unique_ptr<ExprAST> lhs, std::unique_ptr<ExprAST> rhs) : ExprAST(ASTType::binary){
         op = OpCode;
         LHS = std::move(lhs);
         RHS = std::move(rhs); 
     }
 };
 
-class DefAST:public CommandAST{
+/// newExprAST
+class NewExprAST : public ExprAST{
+    VarType type; 
+    std::vector<std::unique_ptr<ExprAST>> args;
+public:
+    NewExprAST(VarType type1, std::vector<std::unique_ptr<ExprAST>> args1) 
+              :ExprAST(ASTType::newT)
+    {
+        type = type1;
+        args = std::move(args1);
+    }
+};
+
+class DefAST:public CommandAST, public StructureAST{
+    bool global;
     public:
-    DefAST(int type) : CommandAST(type){}
+    DefAST(ASTType type,bool g) : CommandAST(type),StructureAST(type){
+        global = g;
+    }
 };
 
 /// VarDefAST
 class VarDefAST : public DefAST{
-    int VarType;
+    IntType type;
     std::string name;
     std::unique_ptr<ExprAST> value;
 public:
-    VarDefAST(int type, std::string n, std::unique_ptr<ExprAST> v):DefAST(ASTType::varDef){
-        VarType = type;
+    VarDefAST(const IntType& type1, std::string n, std::unique_ptr<ExprAST> v, bool global)
+             :type(type1),DefAST(ASTType::varDef,global){
         name = n;
         value = std::move(v);
     }
@@ -184,16 +280,16 @@ public:
 
 ///ArrayDefAST
 class ArrayDefAST : public DefAST{
-    int ArrayType;
+    PointType type;
     std::string name;
-    std::vector<std::unique_ptr<ExprAST>> sizes;
+    std::unique_ptr<ExprAST> value;
 public:
-    ArrayDefAST(int type, std::string n, std::vector<std::unique_ptr<ExprAST>> s)
-               :DefAST(ASTType::arrayDef)
+    ArrayDefAST(PointType &type1, std::string n, std::unique_ptr<ExprAST> v,bool global)
+               :type(type1),DefAST(ASTType::arrayDef,global)
     {
-        ArrayType = type;
+        type = type1;
         name = n;
-        sizes = std::move(s);
+        value = std::move(v);
     }
 };
 
@@ -279,4 +375,39 @@ public:
     BlockAST(std::vector<std::unique_ptr<CommandAST>> c):CommandAST(ASTType::breakT){
         cmds = std::move(c);
     }
+    BlockAST():CommandAST(ASTType::breakT){
+        //std::vector<std::unique_ptr<CommandAST>> c;
+        //cmds = c;
+    }
+};
+
+class PrototypeAST : public StructureAST
+{
+	std::string Name;
+	std::map<std::string,VarAndPointType*> Args;
+    ReturnType returnType;
+
+public:
+	PrototypeAST(const std::string &Name1, std::map<std::string,VarAndPointType*> Args1, ReturnType& returnType1)
+		: Name(Name1),returnType(returnType1),StructureAST(ASTType::proto){
+        Args = Args1;
+	}
+
+	const std::string &getName() const { return Name; }
+    const ReturnType &getReturnType() const{ return returnType;}
+};
+
+/// FunctionAST - This class represents a function definition itself.
+class FunctionAST : public StructureAST
+{
+	std::unique_ptr<PrototypeAST> Proto;
+	std::unique_ptr<CommandAST> Body; 
+
+public:
+	FunctionAST(std::unique_ptr<PrototypeAST> Proto1, std::unique_ptr<CommandAST> Body1)
+	           :StructureAST(ASTType::function){
+		Proto = std::move(Proto1);
+		Body = std::move(Body1);
+	}
+
 };
