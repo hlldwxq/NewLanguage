@@ -16,6 +16,7 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include <utility>
 
 using namespace llvm;
 //using namespace llvm::orc;
@@ -85,26 +86,35 @@ enum class TypeType{
     voidType,
     errorType
 };
+
 class ReturnType{
     protected:
     TypeType typeOfType;
+
     public:
     ReturnType(TypeType t){
         typeOfType = t;
     }
+    virtual ~ReturnType(){}
+
     TypeType getType(){
         return typeOfType;
     }
+    virtual void printAST(){}
 };
 
 class VarAndPointType : public ReturnType{
+    
     public:
         VarAndPointType(TypeType t):ReturnType(t){}
+        virtual ~VarAndPointType(){}
+        virtual void printAST(){}
 };
 
 class voidType : public ReturnType{
     public:
         voidType():ReturnType(TypeType::voidType){}
+        void printAST(){printf("void");}
 };
 
 class IntType : public VarAndPointType{
@@ -113,12 +123,31 @@ public:
     IntType(VarType type1) : VarAndPointType(TypeType::intType){
         type = type1;
     }
+    VarType getType(){
+        return type;
+    }
+    void printAST(){
+        printf("%d",static_cast<int>(type));
+    }
 };
 
 class PointType : public VarAndPointType{
-    VarAndPointType elementType;
+    VarAndPointType* elementType;
 public:
-    PointType(const VarAndPointType& elementType1) : VarAndPointType(TypeType::pointerType),elementType(elementType1){
+    PointType(VarAndPointType* elementType1) : VarAndPointType(TypeType::pointerType){
+        elementType = elementType1;
+    }
+    VarAndPointType* getElementType(){
+        return elementType;
+    }
+    void printAST(){
+        VarAndPointType* p = elementType;
+        printf("*");
+        while(p->getType()==TypeType::pointerType){
+            printf("*");
+            p = ((dynamic_cast<PointType*>(p))->getElementType());
+        }
+        (static_cast<IntType*>(p))->printAST();
     }
 };
 
@@ -130,7 +159,10 @@ public:
     AST(ASTType type){
         astType = type;
     }
+    virtual ~AST(){}
     int getType();
+
+    virtual void printAST(int level=0){}
 };
 
 // Expression
@@ -138,39 +170,58 @@ class ExprAST : public AST{
 public:
     ExprAST(ASTType type):AST(type){
     }
-    
+    virtual ~ExprAST(){}
     Value* codegen();
+    virtual void printAST(int level=0){}
 };
 
 // Commands
 class CommandAST : public AST{
 public:
     CommandAST(ASTType type):AST(type){}
+    virtual ~CommandAST(){}
     Value* codegen();
+    virtual void printAST(int level=0){}
 };
 
 // structure
 class StructureAST : public AST{
 public:
     StructureAST(ASTType type):AST(type){}
-
+    virtual ~StructureAST(){}
     GlobalObject* structureCodegen();
+    virtual void printAST(int level=0){}
 };
 
 // LeftValue  is also expression
 class LeftValueAST : public ExprAST{
 public:
     LeftValueAST(ASTType type):ExprAST(type){}
+    virtual ~LeftValueAST(){}
+    virtual void printAST(int level=0){}
 };
 
 // Variable
-class VariableExprAST : public LeftValueAST{
+class VarOrPointerAST : public LeftValueAST{
     std::string name;
+    bool isPointer;
 public:
-    VariableExprAST(const std::string &Name) : LeftValueAST(ASTType::variable) {
+    VarOrPointerAST(const std::string &Name, bool isP = false) : LeftValueAST(ASTType::variable) {
 		name = Name;
+        isPointer = isP;
 	}
 	const std::string &getName() const { return name; }
+
+    void printAST(int level=0){
+       
+        if(isPointer){
+            printf("Pointer Name: ");
+        }else{
+            printf("Variable Name:");
+        }
+
+        printf("%s",name.c_str());
+    }
 };
 
 // arrayIndex
@@ -179,20 +230,41 @@ class ArrayIndexExprAST: public LeftValueAST{
     std::unique_ptr<ExprAST> index;
 public:
     ArrayIndexExprAST(std::unique_ptr<ExprAST> p, std::unique_ptr<ExprAST> index1)
-                     : LeftValueAST(ASTType::arrayIndex)
-    {
+                     : LeftValueAST(ASTType::arrayIndex) {
         pointer = std::move(p);
         index = std::move(index1);
+    }
+
+    void printAST(int level=0){
+        
+        printf("array index: \n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  left: ");
+        pointer->printAST(level+4);
+        printf("\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  index: ");
+        index->printAST(level+4);
+        printf("\n");
     }
 };
 
 // Constant Number
 class NumberExprAST : public ExprAST{
-protected:
+
     long long value;
 public:
     NumberExprAST(long long val):ExprAST(ASTType::number){
         value = val;
+    }
+    void printAST(int level=0){
+
+        printf("number: %lld",value);
     }
 };
 
@@ -200,6 +272,11 @@ public:
 class NullExprAST : public ExprAST{
 public:
     NullExprAST():ExprAST(ASTType::nullT){}
+
+    void printAST(int level=0){
+
+        printf("null pointer");
+    }
 };
 
 /// CallExprAST - Expression class for function calls.
@@ -215,6 +292,31 @@ public:
         functionName = functionName1;
         args = std::move(args1); 
     }
+
+    void printAST(int level=0){
+
+        printf("function call:\n");
+       
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  name--%s\n",functionName.c_str());
+        
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  args: \n");
+       
+        for(int i=0;i<args.size();i++){
+            for(int i=0;i<level;i++){
+                printf(" ");
+            }
+            printf("\n  arg%d: ",i);
+            args[i]->printAST(level+4);
+            printf("\n");
+        }
+
+    }
 };
 
 /// UnaryExprAST - Expression class for a unary operator.
@@ -227,6 +329,22 @@ public:
 	UnaryExprAST(Operators opCode1, std::unique_ptr<ExprAST> Operand1) : ExprAST(ASTType::unary) {
         opCode = opCode1;
         Operand = move(Operand1);
+    }
+
+    void printAST(int level=0){
+
+        printf("unary expr:\n"); 
+        
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  operator--%d\n",static_cast<int>(opCode));
+        
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  operand--");
+        Operand->printAST(level+1);
     }
 };
 
@@ -242,6 +360,30 @@ public:
         LHS = std::move(lhs);
         RHS = std::move(rhs); 
     }
+
+    void printAST(int level=0){
+        
+        printf("binary expr: \n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  left--");
+        LHS->printAST();
+        printf("\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  operator--%d\n",static_cast<int>(op));
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  right--");
+        RHS->printAST();
+    }
+
 };
 
 /// newExprAST
@@ -255,6 +397,24 @@ public:
         type = type1;
         args = std::move(args1);
     }
+    void printAST(int level=0){
+        
+        printf("new expr: type--%d\n",static_cast<int>(type));
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("args:\n");
+
+        for(int i=0;i<args.size();i++){
+            for(int i=0;i<level;i++){
+                printf(" ");
+            }
+            printf(" arg%d",i);
+            args[i]->printAST(level+8);
+            printf("\n");
+        }
+    }
 };
 
 class DefAST:public CommandAST, public StructureAST{
@@ -267,29 +427,75 @@ class DefAST:public CommandAST, public StructureAST{
 
 /// VarDefAST
 class VarDefAST : public DefAST{
-    IntType type;
+    IntType* type;
     std::string name;
     std::unique_ptr<ExprAST> value;
 public:
-    VarDefAST(const IntType& type1, std::string n, std::unique_ptr<ExprAST> v, bool global)
-             :type(type1),DefAST(ASTType::varDef,global){
+    VarDefAST(IntType* type1, std::string n, std::unique_ptr<ExprAST> v, bool global)
+             :DefAST(ASTType::varDef,global){
+        type = type1;
         name = n;
         value = std::move(v);
+    }
+    
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("variable definition:\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  type--");
+        type->printAST();
+        printf("\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  name--%s \n",name.c_str());
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  value--");
+        value->printAST(level+8);
+        printf("\n");
     }
 };
 
 ///ArrayDefAST
 class ArrayDefAST : public DefAST{
-    PointType type;
+    PointType* type;
     std::string name;
     std::unique_ptr<ExprAST> value;
 public:
-    ArrayDefAST(PointType &type1, std::string n, std::unique_ptr<ExprAST> v,bool global)
-               :type(type1),DefAST(ASTType::arrayDef,global)
+    ArrayDefAST(PointType* type1, std::string n, std::unique_ptr<ExprAST> v,bool global)
+               :DefAST(ASTType::arrayDef,global)
     {
         type = type1;
         name = n;
         value = std::move(v);
+    }
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("array def:\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  type--");
+        type->printAST();
+        printf("\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  name--%s\n",name.c_str());
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  value--");
+        value->printAST(level+8);
+        printf("\n");
     }
 };
 
@@ -301,6 +507,25 @@ class AssignAST : public CommandAST{
     AssignAST(std::unique_ptr<LeftValueAST> l, std::unique_ptr<ExprAST> r):CommandAST(ASTType::assign){
         left = std::move(l);
         right = std::move(r);
+    }
+
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("assign: \n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  left--");
+        left->printAST(level+8);
+        printf("\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  right--");
+        right->printAST(level+8);
+        printf("\n");
     }
 };
 
@@ -316,6 +541,34 @@ class IfAST : public CommandAST{
         condition = std::move(cond);
         thenC = std::move(t);
         elseC = std::move(e);
+    }
+
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("if:\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  condition--");
+        condition->printAST(level+8);
+        printf("\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  then--");
+        thenC->printAST(level+8);
+        printf("\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  else--");
+        elseC->printAST(level+8);
+        printf("\n");
     }
 };
 
@@ -334,7 +587,33 @@ class ForAST : public CommandAST{
         step = step1;
         body = std::move(body1);
     }
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("for:\n");
 
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  start--");
+        start->printAST(level+8);
+        printf("\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  condition--");
+        condition->printAST(level+8);
+        printf("\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  body--");
+        body->printAST();
+        printf("\n");
+    }
 };
 
 ///whileAST
@@ -348,6 +627,26 @@ class WhileAST : public CommandAST{
         condition = std::move(cond);
         body = std::move(cmd);
     }
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("while:\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  condition--");
+        condition->printAST(level+8);
+        printf("\n");
+
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  body--");
+        body->printAST(level+8);
+        printf("\n");
+    }
 };
 
 ///returnAST
@@ -359,6 +658,13 @@ class ReturnAST : public CommandAST{
     {
         value = std::move(v);
     }
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("return  value--");
+        value->printAST(level);
+    }
 };
 
 ///breakAST
@@ -366,35 +672,63 @@ class BreakAST : public CommandAST{
   
     public:
     BreakAST():CommandAST(ASTType::breakT){}
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("break");
+    }
 };
 
 ///blockAST
 class BlockAST : public CommandAST{
     std::vector<std::unique_ptr<CommandAST>> cmds;
 public:
-    BlockAST(std::vector<std::unique_ptr<CommandAST>> c):CommandAST(ASTType::breakT){
+    BlockAST(std::vector<std::unique_ptr<CommandAST>> c):CommandAST(ASTType::body){
         cmds = std::move(c);
     }
-    BlockAST():CommandAST(ASTType::breakT){
+    BlockAST():CommandAST(ASTType::body){
         //std::vector<std::unique_ptr<CommandAST>> c;
         //cmds = c;
+    }
+    void printAST(int level=0){
+        printf("block: \n");
+        for(int i =0;i<cmds.size();i++){
+            cmds[i]->printAST(level+4);
+            //printf("\n");
+        }
     }
 };
 
 class PrototypeAST : public StructureAST
 {
 	std::string Name;
-	std::map<std::string,VarAndPointType*> Args;
-    ReturnType returnType;
+	std::vector<std::pair<std::string,VarAndPointType*>> Args;
+    ReturnType* returnType;
 
 public:
-	PrototypeAST(const std::string &Name1, std::map<std::string,VarAndPointType*> Args1, ReturnType& returnType1)
-		: Name(Name1),returnType(returnType1),StructureAST(ASTType::proto){
+	PrototypeAST(const std::string &Name1, std::vector<std::pair<std::string,VarAndPointType*>> Args1, ReturnType* returnType1)
+		: Name(Name1),StructureAST(ASTType::proto){
         Args = Args1;
+        returnType = returnType1;
 	}
 
+    void printAST(int level=0){
+        
+        printf("prototype:\n");
+        printf("  returnType--");  
+        returnType->printAST();
+        printf("\n  name--%s\n",Name.c_str());
+        printf("  args:\n");
+        for(int i=0;i<Args.size();i++){
+            printf("    arg%d :    name--%s\n",i,Args[i].first.c_str());
+            printf("              type--");
+            Args[i].second->printAST();
+            printf("\n");
+        }
+    }
 	const std::string &getName() const { return Name; }
-    const ReturnType &getReturnType() const{ return returnType;}
+
 };
 
 /// FunctionAST - This class represents a function definition itself.
@@ -410,4 +744,12 @@ public:
 		Body = std::move(Body1);
 	}
 
+    void printAST(int level=0){
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("function: \n");
+        Proto->printAST();
+        Body->printAST(level);
+    }
 };

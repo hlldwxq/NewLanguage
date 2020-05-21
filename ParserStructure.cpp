@@ -1,9 +1,11 @@
 #include "Parser.h"
-#include "main.h"
-VarAndPointType ParseType(){
-    if(CurTok > Token::tok_i128 || CurTok < Token::tok_i1 ){
+
+VarAndPointType* Parser::ParseType(){
+    
+    if(!isType()){
+        fprintf(stderr, "Syntax Error1: line %d -- %d\n",lineN, static_cast<int>(CurTok));
         ErrorQ("except a type",lineN);
-        return VarAndPointType(TypeType::errorType);
+        return NULL;
     }
     VarType vt;
     switch(CurTok){
@@ -26,12 +28,13 @@ VarAndPointType ParseType(){
             vt = VarType::int128;
             break;
         default:
-            Bug("switch type error for global var and array");
+            Bug("switch type error for global var and array",lineN);
+            break;
     }
-    VarAndPointType type = IntType(vt);
+    VarAndPointType* type = new IntType(vt);
     getNextToken();
     while(CurTok==Token::star){
-        type = PointType(type);
+        type = new PointType(type);
         getNextToken();
     }
 
@@ -39,25 +42,25 @@ VarAndPointType ParseType(){
 }
 
 /// prototype::=def type functionName( arg* , ) ;
-static std::unique_ptr<StructureAST> ParseProtoOrFunction(){
+std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
     if(CurTok != Token::tok_def){
         ErrorQ("except def",lineN);
         return nullptr;
     }
 
     getNextToken();  //eat def
-    ReturnType returnType = ReturnType(TypeType::errorType);
+    ReturnType* returnType = NULL;
     std::string FnName;
-    std::map<std::string,VarAndPointType*> args;
+    std::vector<std::pair<std::string,VarAndPointType*>> args;
     
     //get return Type
     if(CurTok == Token::tok_void){
-        returnType = voidType();
+        returnType = new voidType();
         getNextToken();
     }else{ 
         returnType = ParseType();
     }
-    if(returnType.getType()==TypeType::errorType){
+    if(returnType==NULL){
         return nullptr;
     }
 
@@ -66,18 +69,24 @@ static std::unique_ptr<StructureAST> ParseProtoOrFunction(){
         return nullptr;
     }
     FnName = IdentifierStr;
-    getNextToken();
+    getNextToken(); //eat function name
 
     if(CurTok != Token::left_paren){
         ErrorQ("except ( in function definition", lineN);
         return nullptr;
     }
+    getNextToken(); //eat (
+
     while(true){
         if(CurTok == Token::right_paren)
             break;
         
-        VarAndPointType t = ParseType();
-        if(t.getType()==TypeType::errorType){
+        if(!isType()){
+            ErrorQ("expected a type for a argument",lineN);
+            return nullptr;
+        }
+        VarAndPointType* t = ParseType();
+        if(t==NULL){
             return nullptr; 
         }
 
@@ -87,11 +96,13 @@ static std::unique_ptr<StructureAST> ParseProtoOrFunction(){
         }
         argName = IdentifierStr;
         getNextToken();
-        if(args.find(argName) == args.end()){
-            ErrorQ("Duplicate parameter names", lineN);
-            return nullptr;
+        for(int i=0;i<args.size();i++){
+            if(args[i].first ==argName){
+                ErrorQ("Duplicate parameter names", lineN);
+                return nullptr;
+            }
         }
-        args[argName] = &t;
+        args.push_back(std::make_pair(argName,t));
 
         if(CurTok==Token::comma){
             getNextToken();
@@ -120,22 +131,17 @@ static std::unique_ptr<StructureAST> ParseProtoOrFunction(){
         return nullptr;
     }
 
-    return std::make_unique<FunctionAST>(std::move(proto),std::move(body));
+    std::unique_ptr<FunctionAST> f = std::make_unique<FunctionAST>(std::move(proto),std::move(body));
+    return std::move(f);
 }
 
-static std::unique_ptr<StructureAST> ParseStructure(){
+std::unique_ptr<StructureAST> Parser::ParseStructure(){
     if(CurTok == Token::tok_def){
         return ParseProtoOrFunction();
-    }else{
+    
+    }else if(isType()){
         return ParseVarOrArrDef(true);
     }
-}
-
-static void HandleTopLevel(){
-    while(CurTok != Token::tok_eof){
-        std::unique_ptr<StructureAST> structure = ParseStructure();
-        if(structure != nullptr){
-            structure->structureCodegen();
-        }
-    }
+    ErrorQ("unexpected word",lineN);
+    return nullptr;
 }

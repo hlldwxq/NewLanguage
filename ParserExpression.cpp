@@ -2,52 +2,51 @@
 
 ///==========Expression========================//
 
-static std::unique_ptr<ExprAST> ParseExpr();
-
 /// boolExpr ::= true   false
-static std::unique_ptr<NumberExprAST> ParseBoolConstantExpr(){
+std::unique_ptr<NumberExprAST> Parser::ParseBoolConstantExpr(){
     
     if(CurTok != Token::tok_true && CurTok != Token::tok_false)
-        Bug("call ParseBoolExpr, except true or false");
+        Bug("call ParseBoolExpr, except true or false",lineN);
     
     int b = (CurTok == Token::tok_true) ? 1 : 0;
     
     std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(b);
     getNextToken(); // eat the bool
     return num;
+
 }
 
 /// boolExpr ::= null
-static std::unique_ptr<NullExprAST> ParseNullExpr(){
+std::unique_ptr<NullExprAST> Parser::ParseNullExpr(){
 
     if(CurTok != Token::tok_null)
-        Bug("call ParseNullExpr, except null");
+        Bug("call ParseNullExpr, except null",lineN);
 
     getNextToken(); //eat null
     return std::make_unique<NullExprAST>();
 }
 
 /// numberExpr ::= number
-static std::unique_ptr<ExprAST> ParseNumberExpr(){
+std::unique_ptr<NumberExprAST> Parser::ParseNumberExpr(){
 	
     if(CurTok != Token::tok_number)
-        Bug("call ParseNumberExpr, except constant number");
+        Bug("call ParseNumberExpr, except constant number",lineN);
 
     std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(NumVal); 
 	getNextToken();	// eat the number						   
-	return std::move(num);
+	return num;
 }
 
 /// callExpr ::= fName(expression1,expression2, ..)
-static std::unique_ptr<CallExprAST> ParseCallExpr(std::string functionName){
+std::unique_ptr<CallExprAST> Parser::ParseCallExpr(std::string functionName){
     
     if(CurTok != Token::left_paren)
-        Bug("call ParseCallExpr, except ( after the function name");
+        Bug("call ParseCallExpr, except ( after the function name",lineN);
 
     getNextToken();  // eat (
 
     std::vector<std::unique_ptr<ExprAST>> args;
-    while(CurTok != Token::right_brace){
+    while(CurTok != Token::right_paren){
 
         std::unique_ptr<ExprAST> arg = ParseExpr();
         if(arg == nullptr){
@@ -65,15 +64,15 @@ static std::unique_ptr<CallExprAST> ParseCallExpr(std::string functionName){
             getNextToken();  //eat ,
         }
     }
-
+    getNextToken(); //eat )
     return std::make_unique<CallExprAST>(functionName, std::move(args));
 }
 
 /// arrayIndexExpr ::= arrayName[expression1][expression2]
-static std::unique_ptr<ArrayIndexExprAST> ParseArrayIndexExpr(std::unique_ptr<ExprAST> left){
+std::unique_ptr<ArrayIndexExprAST> Parser::ParseArrayIndexExpr(std::unique_ptr<ExprAST> left){
 
     if(CurTok != Token::left_square_bracket)
-        Bug("call ParseArrayIndexExpr, except [ after array name");
+        Bug("call ParseArrayIndexExpr, except [ after array name",lineN);
 
     std::unique_ptr<ArrayIndexExprAST> arrayIndex = nullptr;
     
@@ -97,19 +96,19 @@ static std::unique_ptr<ArrayIndexExprAST> ParseArrayIndexExpr(std::unique_ptr<Ex
             arrayIndex = std::make_unique<ArrayIndexExprAST>(std::move(arrayIndex),std::move(index));
         }
 
-    }while(CurTok != Token::left_square_bracket);
+    }while(CurTok == Token::left_square_bracket);
 
-    return std::move(arrayIndex);
+    return arrayIndex;
 }
 
 /// identifierexpr
 ///   ::= variableName
 ///   ::= arrayName[expression][expression]
 ///   ::= functionName '(' expression* ')'
-static std::unique_ptr<ExprAST> ParseIdentifierExpr()
+std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr()
 {
 	if(CurTok != Token::tok_identifier)
-        Bug("call ParseIdentifierExpr, except an identifier");
+        Bug("call ParseIdentifierExpr, except an identifier",lineN);
 
 	std::string IdName = IdentifierStr;
 	getNextToken(); // eat identifier.
@@ -120,21 +119,22 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr()
 	}
 	else if (CurTok == Token::left_square_bracket)
 	{
-        return ParseArrayIndexExpr(IdName);
+        std::unique_ptr<VarOrPointerAST> pointerName = std::make_unique<VarOrPointerAST>(IdName,true);
+        return ParseArrayIndexExpr(std::move(pointerName));
 	}
 
-    return std::make_unique<VariableExprAST>(IdName);
+    return std::make_unique<VarOrPointerAST>(IdName);
 }
 
 /// unary
 ///   ::= ! expression
 ///   ::= - expression
-static std::unique_ptr<ExprAST> ParseUnary(){
+std::unique_ptr<ExprAST> Parser::ParseUnary(){
 
     Token Op = CurTok;
 
     if(Op != Token::exclamation_point && Op != Token::minus){
-        Bug("call ParseUnary, but unvalid unary symbol");        
+        Bug("call ParseUnary, but unvalid unary symbol",lineN);        
     }
     
     Operators unaryOp;
@@ -171,14 +171,14 @@ static std::unique_ptr<ExprAST> ParseUnary(){
 
 /// binoprhs
 ///   ::= ('+' unary)*
-static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, std::unique_ptr<ExprAST> LHS)
+std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec, std::unique_ptr<ExprAST> LHS)
 {
 	
 	while (true)
 	{
 		int TokPrec = GetTokPrecedence();
-		
         // more check,if sumbol is valid
+        //unvalid symbol does not mean error
 
 		if (TokPrec < ExprPrec)
 			return LHS;
@@ -254,12 +254,73 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, std::unique_ptr<Expr
 	}
 }
 
+/// newExpr ::= new type name[expr1][expr2]
+std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
+    if(CurTok != Token::tok_new){
+        ErrorQ("except new", lineN);
+        return nullptr;
+    }
+    getNextToken(); //eat new
+
+    if( !(isType()) ){
+        ErrorQ("except a type", lineN);
+        return nullptr;
+    }
+    VarType type;
+    switch(CurTok){
+        case Token::tok_i1:
+        type = VarType::int1;
+        break;
+        case Token::tok_i8:
+        type = VarType::int8;
+        break;
+        case Token::tok_i16:
+        type = VarType::int16;
+        break;
+        case Token::tok_i32:
+        type = VarType::int32;
+        break;
+        case Token::tok_i64:
+        type = VarType::int64;
+        break;
+        case Token::tok_i128:
+        type = VarType::int128;
+        break;
+        default:
+        ErrorQ("expect a type",lineN);
+        return nullptr;
+    } 
+    getNextToken(); //eat type
+
+    std::vector<std::unique_ptr<ExprAST>> indexs;
+    do{
+        if(CurTok!=Token::left_square_bracket){
+            ErrorQ("unenough [, except [",lineN);
+            return nullptr;
+        }
+        getNextToken(); //eat [
+
+        std::unique_ptr<ExprAST> index = ParseExpr();
+        if(index==nullptr)
+            return nullptr;
+        indexs.push_back(std::move(index));
+
+        if(CurTok!=Token::right_square_bracket){
+            ErrorQ("except ] in array definition",lineN);
+            return nullptr;
+        }
+        getNextToken(); //eat ]
+    }while(CurTok==Token::left_square_bracket);
+
+    return std::make_unique<NewExprAST>(type,std::move(indexs));
+}
+
 /// paren
 ///    ::= (expression)
-static std::unique_ptr<ExprAST> ParseParen(){
+std::unique_ptr<ExprAST> Parser::ParseParen(){
     
     if(CurTok != Token::left_paren)
-        Bug("call ParseParen, but no (");
+        Bug("call ParseParen, but no (",lineN);
     getNextToken(); //eat (
 
     std::unique_ptr<ExprAST> Expr = ParseExpr();
@@ -279,7 +340,7 @@ static std::unique_ptr<ExprAST> ParseParen(){
 ///      ::= identifier ...  //variableName, array index, function call
 ///      ::= ! - 
 ///      ::= Expr binop Expr
-static std::unique_ptr<ExprAST> ParseExpr(){
+std::unique_ptr<ExprAST> Parser::ParseExpr(){
     
     std::unique_ptr<ExprAST> Expr;
     switch(CurTok){
@@ -304,6 +365,9 @@ static std::unique_ptr<ExprAST> ParseExpr(){
     case Token::minus :
         Expr = ParseUnary();
         break;
+    case Token::tok_new:
+        Expr = ParseNewExpr();
+        break;
     case Token::left_paren :
         Expr = ParseParen();
         break;
@@ -313,7 +377,7 @@ static std::unique_ptr<ExprAST> ParseExpr(){
     }
 
     // so long if, better method?
-    if(CurTok==Token::plus_sign||CurTok==Token::minus||CurTok==Token::star||CurTok==Token::disvision||CurTok==Token::andT||CurTok==Token::orT||(CurTok>=Token::more_equal && CurTok<= Token::equal_sign)){
+    if(CurTok==Token::plus_sign||CurTok==Token::minus||CurTok==Token::star||CurTok==Token::disvision||CurTok==Token::andT||CurTok==Token::orT||CurTok==Token::assignment||(static_cast<int>(CurTok)>=static_cast<int>(Token::equal_sign) && static_cast<int>(CurTok)<= static_cast<int>(Token::less_sign))){
         Expr = ParseBinOpRHS(0,std::move(Expr));
     }
     if(CurTok == Token::left_square_bracket){

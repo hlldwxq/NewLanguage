@@ -3,17 +3,19 @@
 //================Commands===============//
 
 /// assign ::= leftvalue = expression
-static std::unique_ptr<AssignAST> ParseAssign(std::string name){
+std::unique_ptr<AssignAST> Parser::ParseAssign(std::string name){
     
 
     std::unique_ptr<LeftValueAST> left;
     
     if(CurTok == Token::left_square_bracket){
-        left = ParseArrayIndexExpr(name);
+        
+        std::unique_ptr<VarOrPointerAST> pointerName = std::make_unique<VarOrPointerAST>(name,true);
+        left = ParseArrayIndexExpr(std::move(pointerName));
         if(left == nullptr)
             return nullptr;
     }else{
-        left = std::make_unique<VariableExprAST>(name);
+        left = std::make_unique<VarOrPointerAST>(name,false);
     }
     
     if(CurTok != Token::assignment){
@@ -34,10 +36,10 @@ static std::unique_ptr<AssignAST> ParseAssign(std::string name){
 /// identifier ::= varname = expression
 ///            ::= arrayname[expression1]+ = expression
 ///            ::= functionName( [expression]* , )
-static std::unique_ptr<CommandAST> ParseIdentifier(){
+std::unique_ptr<CommandAST> Parser::ParseIdentifier(){
     
     if(CurTok != Token::tok_identifier)
-        Bug("call ParseIdentifier, but no identifier");
+        Bug("call ParseIdentifier, but no identifier",lineN);
 
     std::string name = IdentifierStr;
     getNextToken();  // eat identifier
@@ -50,10 +52,10 @@ static std::unique_ptr<CommandAST> ParseIdentifier(){
 }
 
 /// return ::= return expression
-static std::unique_ptr<ReturnAST> ParseReturn(){
+std::unique_ptr<ReturnAST> Parser::ParseReturn(){
     
     if(CurTok != Token::tok_return)
-        Bug("call ParseReturn, but no return");
+        Bug("call ParseReturn, but no return",lineN);
 
     getNextToken(); //eat return
     std::unique_ptr<ExprAST> value = ParseExpr();
@@ -64,19 +66,20 @@ static std::unique_ptr<ReturnAST> ParseReturn(){
 }
 
 /// block ::= {  cmd*  }
-static std::unique_ptr<BlockAST> ParseBlock(){
+std::unique_ptr<BlockAST> Parser::ParseBlock(){
 
     if(CurTok != Token::left_brace)
-        Bug("call ParseBlock, but no {");
+        Bug("call ParseBlock, but no {",lineN);
 
     getNextToken(); //eat {
     std::vector<std::unique_ptr<CommandAST>> cmds;
 
     while(CurTok != Token::right_brace && CurTok!=Token::tok_eof){
+       // ErrorQ("parse cmd,no error",lineN);
         std::unique_ptr<CommandAST> cmd = ParseCommand();
-        cmds.push_back(std::move(cmd));
         if(cmd == nullptr)
             return nullptr;
+        cmds.push_back(std::move(cmd));
     }
 
     if(CurTok != Token::right_brace){
@@ -89,10 +92,10 @@ static std::unique_ptr<BlockAST> ParseBlock(){
 }
 
 /// if ::= if condition then cmds [else cmds]
-static std::unique_ptr<IfAST> ParseIf(){
+std::unique_ptr<IfAST> Parser::ParseIf(){
     
     if(CurTok != Token::tok_if)
-        Bug("call ParseIf, but no if");
+        Bug("call ParseIf, but no if",lineN);
 
     getNextToken(); //eat if
     
@@ -104,7 +107,8 @@ static std::unique_ptr<IfAST> ParseIf(){
         ErrorQ("except then", lineN);
         return nullptr;
     }
-    
+    getNextToken(); //eat if
+
     std::unique_ptr<CommandAST> then = ParseCommand();
     if(then == nullptr)
         return nullptr;
@@ -113,6 +117,7 @@ static std::unique_ptr<IfAST> ParseIf(){
     if(CurTok != Token::tok_else)
         elseT = std::make_unique<BlockAST>();  //empty block
     else {
+        getNextToken(); //eat else
         elseT = ParseCommand();
         if(elseT == nullptr)
             return nullptr;
@@ -123,9 +128,9 @@ static std::unique_ptr<IfAST> ParseIf(){
 
 /// def ::= Type variableName [ = expression] 
 ///     ::= Type arrayName*+ = new Type [expression]+
-static std::unique_ptr<DefAST> ParseVarOrArrDef(bool global){
-    if( !(CurTok >= Token::tok_i1 && CurTok <= Token::tok_i128) ){
-        Bug("call ParseVarOrArrDef, but no type");
+std::unique_ptr<DefAST> Parser::ParseVarOrArrDef(bool global){
+    if(!isType()){
+        Bug("call ParseVarOrArrDef, but no type",lineN);
     }
     Token CurType = CurTok;
     VarType type;
@@ -152,6 +157,7 @@ static std::unique_ptr<DefAST> ParseVarOrArrDef(bool global){
         ErrorQ("expect a type",lineN);
         return nullptr;
     }
+    getNextToken(); //eat type
 
     int ptr = 0;
     while(CurTok == Token::star){
@@ -164,6 +170,7 @@ static std::unique_ptr<DefAST> ParseVarOrArrDef(bool global){
         //return nullptr;
     }
     std::string name = IdentifierStr;
+    getNextToken(); //eat name
 
     if(ptr==0){
         std::unique_ptr<ExprAST> value;
@@ -178,16 +185,16 @@ static std::unique_ptr<DefAST> ParseVarOrArrDef(bool global){
             if(value==nullptr)
                 return nullptr;              
         }
-        IntType i = IntType(type);
+        IntType* i = new IntType(type);
         return std::make_unique<VarDefAST>(i,name,std::move(value),global);
     }
     else{
-        IntType i = IntType(type);
-        PointType pt = PointType(i);
+        IntType* i = new IntType(type);
+        PointType* pt = new PointType(i);
         for(int i=1;i<ptr;i++){
-            pt = PointType(pt);
+            pt = new PointType(pt);
         }
-        std::unique_ptr<ExprAST> left;
+        std::unique_ptr<ExprAST> right;
         
         // if the indexs is empty, codegen should init the pointer as null
         if(CurTok == Token::assignment){
@@ -199,7 +206,7 @@ static std::unique_ptr<DefAST> ParseVarOrArrDef(bool global){
             }
             getNextToken(); //eat new
 
-            if( !(CurTok >= Token::tok_i1 && CurTok <= Token::tok_i128) ){
+            if( !(isType()) ){
                 ErrorQ("except a type", lineN);
                 return nullptr;
             }
@@ -227,23 +234,26 @@ static std::unique_ptr<DefAST> ParseVarOrArrDef(bool global){
                     ErrorQ("except ] in array definition",lineN);
                     return nullptr;
                 }
+                getNextToken(); //eat ]
             }
-            left = std::make_unique<NewExprAST>(type,std::move(indexs));
+            right = std::make_unique<NewExprAST>(type,std::move(indexs));
         }else{ // no assignment, default value is null
-            left = std::make_unique<NullExprAST>();
+            right = std::make_unique<NullExprAST>();
         }
-        return std::make_unique<ArrayDefAST>(pt,name,std::move(left),global);
+        return std::make_unique<ArrayDefAST>(pt,name,std::move(right),global);
     }
 }
 
 /// for ::= for start, cond, step cmds
-static std::unique_ptr<ForAST> ParseFor(){
+std::unique_ptr<ForAST> Parser::ParseFor(){
     
     if(CurTok != Token::tok_for)
-        Bug("call ParseFor, but no for");
+        Bug("call ParseFor, but no for",lineN);
 
     getNextToken(); //eat for
+   // ErrorQ("parse for, no error",lineN);
     std::unique_ptr<DefAST> start = ParseVarOrArrDef(false);
+   // ErrorQ("parse for, end start no error",lineN);
     if(start == nullptr)
         return nullptr;
     
@@ -266,9 +276,10 @@ static std::unique_ptr<ForAST> ParseFor(){
     long long step;
     if(CurTok != Token::tok_number)
         step = 1;
-    else
+    else{
         step = NumVal;
-    
+        getNextToken(); //eat num
+    }
     std::unique_ptr<CommandAST> cmds = ParseCommand();
     if(cmds==nullptr)
         return nullptr;
@@ -277,9 +288,9 @@ static std::unique_ptr<ForAST> ParseFor(){
 }
 
 /// while ::= while cond cmds
-static std::unique_ptr<WhileAST> ParseWhile(){
+std::unique_ptr<WhileAST> Parser::ParseWhile(){
     if(CurTok != Token::tok_while)
-        Bug("call ParseWhile, but no while");
+        Bug("call ParseWhile, but no while",lineN);
 
     getNextToken();
 
@@ -293,7 +304,7 @@ static std::unique_ptr<WhileAST> ParseWhile(){
     return std::make_unique<WhileAST>(std::move(cond),std::move(cmds));
 }
 
-static std::unique_ptr<CommandAST> ParseCommand(){
+std::unique_ptr<CommandAST> Parser::ParseCommand(){
     switch(CurTok){
     case Token::tok_identifier:
         return ParseIdentifier();
@@ -314,7 +325,7 @@ static std::unique_ptr<CommandAST> ParseCommand(){
         return ParseWhile();
         break;
     default:
-        if(CurTok>=Token::tok_i1 && CurTok<=Token::tok_i128)
+        if(isType())
         {   return ParseVarOrArrDef(false);}
         else
         {   
