@@ -9,3 +9,6 @@ start: $(C_OBJECTS)
 .cpp.o:
 	@echo Compiling cpp source code files $< ...
 	clang++-10 -g -c $< $(C_FLAGS) -o $@
+
+file.ast: Parser file.ast
+	./Parser > file.ast 2>&1 || echo "Ignoring Parser failure"

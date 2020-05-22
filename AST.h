@@ -83,8 +83,7 @@ enum class VarType{
 enum class TypeType{
     intType,
     pointerType,
-    voidType,
-    errorType
+    voidType
 };
 
 class ReturnType{
@@ -127,7 +126,27 @@ public:
         return type;
     }
     void printAST(){
-        printf("%d",static_cast<int>(type));
+        switch(type){
+            case VarType::int1:  
+                printf("int1");
+                break;
+            case VarType::int8:  
+                printf("int8");
+                break;
+            case VarType::int16:  
+                printf("int16");
+                break;
+            case VarType::int32:  
+                printf("int32");
+                break;
+            case VarType::int64:  
+                printf("int64");
+                break;
+            case VarType::int128:  
+                printf("int128");
+                break;
+        }
+       
     }
 };
 
@@ -213,11 +232,13 @@ public:
 	const std::string &getName() const { return name; }
 
     void printAST(int level=0){
-       
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
         if(isPointer){
             printf("Pointer Name: ");
         }else{
-            printf("Variable Name:");
+            printf("Variable Name: ");
         }
 
         printf("%s",name.c_str());
@@ -236,21 +257,22 @@ public:
     }
 
     void printAST(int level=0){
-        
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
         printf("array index: \n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  left: ");
+        printf("  left: \n");
         pointer->printAST(level+4);
         printf("\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  index: ");
+        printf("  index: \n");
         index->printAST(level+4);
-        printf("\n");
     }
 };
 
@@ -263,7 +285,9 @@ public:
         value = val;
     }
     void printAST(int level=0){
-
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
         printf("number: %lld",value);
     }
 };
@@ -274,7 +298,9 @@ public:
     NullExprAST():ExprAST(ASTType::nullT){}
 
     void printAST(int level=0){
-
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
         printf("null pointer");
     }
 };
@@ -295,12 +321,15 @@ public:
 
     void printAST(int level=0){
 
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
         printf("function call:\n");
        
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  name--%s\n",functionName.c_str());
+        printf("  name: %s\n",functionName.c_str());
         
         for(int i=0;i<level;i++){
             printf(" ");
@@ -308,10 +337,10 @@ public:
         printf("  args: \n");
        
         for(int i=0;i<args.size();i++){
-            for(int i=0;i<level;i++){
+            for(int j=0;j<level;j++){
                 printf(" ");
             }
-            printf("\n  arg%d: ",i);
+            printf("  arg%d: \n",i+1);
             args[i]->printAST(level+4);
             printf("\n");
         }
@@ -338,13 +367,22 @@ public:
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  operator--%d\n",static_cast<int>(opCode));
+        printf("  operator: ");
+        switch(opCode){
+            case Operators::minus:
+            printf("-");
+            break;
+            case Operators::exclamation_point:
+            printf("!");
+            break;
+        }
+        printf("\n");
         
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  operand--");
-        Operand->printAST(level+1);
+        printf("  operand: \n");
+        Operand->printAST(level+4);
     }
 };
 
@@ -362,26 +400,73 @@ public:
     }
 
     void printAST(int level=0){
-        
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
         printf("binary expr: \n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  left--");
-        LHS->printAST();
+        printf("  left:\n");
+        LHS->printAST(level+4);
         printf("\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  operator--%d\n",static_cast<int>(op));
+        printf("  operator: ");
+        switch(op){
+            case Operators::equal_sign:  //==
+                printf("==");
+                break;
+	        case Operators::not_equal:   //!=
+                printf("!=");
+                break;
+	        case Operators::less_equal:  //<=
+                printf("<=");
+                break;
+	        case Operators::more_equal:  //>=
+                printf(">=");
+                break;
+	        case Operators::plus_sign:   //+
+                printf("+");
+                break;
+            case Operators::minus:       //-
+                printf("-");
+                break;
+            case Operators::star:        //*
+                printf("*");
+                break;
+	        case Operators::disvision:   // /
+                printf("/");
+                break;
+        	case Operators::more_sign:   // >
+                printf(">");
+                break;
+	        case Operators::less_sign:   // <
+                printf("<");
+                break;
+	        case Operators::assignment:  // =
+                printf("=");
+                break;
+            case Operators::andT:        // &
+                printf("&");
+                break;
+	        case Operators::orT:         // |
+                printf("|");
+                break;
+            default:
+                printf("error binary op");
+                break;
+        }
+        printf("\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  right--");
-        RHS->printAST();
+        printf("  right:\n");
+        RHS->printAST(level+4);
     }
 
 };
@@ -398,20 +483,46 @@ public:
         args = std::move(args1);
     }
     void printAST(int level=0){
-        
-        printf("new expr: type--%d\n",static_cast<int>(type));
-
+        for(int i=0;i<level;i++){
+                printf(" ");
+            }
+        printf("New expr:\n");
+        for(int i=0;i<level;i++){
+                printf(" ");
+            }
+        printf("  type: ");
+        switch(type){
+            case VarType::int1:  
+                printf("int1");
+                break;
+            case VarType::int8:  
+                printf("int8");
+                break;
+            case VarType::int16:  
+                printf("int16");
+                break;
+            case VarType::int32:  
+                printf("int32");
+                break;
+            case VarType::int64:  
+                printf("int64");
+                break;
+            case VarType::int128:  
+                printf("int128");
+                break;
+        }
+        printf("\n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("args:\n");
+        printf("sizes:\n");
 
         for(int i=0;i<args.size();i++){
             for(int i=0;i<level;i++){
                 printf(" ");
             }
-            printf(" arg%d",i);
-            args[i]->printAST(level+8);
+            printf(" size%d\n",i+1);
+            args[i]->printAST(level+4);
             printf("\n");
         }
     }
@@ -442,23 +553,23 @@ public:
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("variable definition:\n");
+        printf("Variable def:\n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  type--");
+        printf("  type: ");
         type->printAST();
         printf("\n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  name--%s \n",name.c_str());
+        printf("  name: %s \n",name.c_str());
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  value--");
-        value->printAST(level+8);
-        printf("\n");
+        printf("  value: \n");
+        value->printAST(level+4);
+
     }
 };
 
@@ -479,23 +590,22 @@ public:
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("array def:\n");
+        printf("Array def:\n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  type--");
+        printf("  type: ");
         type->printAST();
         printf("\n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  name--%s\n",name.c_str());
+        printf("  name: %s\n",name.c_str());
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  value--");
-        value->printAST(level+8);
-        printf("\n");
+        printf("  value: \n");
+        value->printAST(level+4);
     }
 };
 
@@ -513,19 +623,18 @@ class AssignAST : public CommandAST{
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("assign: \n");
+        printf("Assign: \n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  left--");
-        left->printAST(level+8);
+        printf("  left:\n");
+        left->printAST(level+4);
         printf("\n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  right--");
-        right->printAST(level+8);
-        printf("\n");
+        printf("  right:\n");
+        right->printAST(level+4);
     }
 };
 
@@ -547,27 +656,27 @@ class IfAST : public CommandAST{
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("if:\n");
+        printf("If:\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  condition--");
-        condition->printAST(level+8);
+        printf("  condition:\n");
+        condition->printAST(level+4);
         printf("\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  then--");
-        thenC->printAST(level+8);
+        printf("  then:\n");
+        thenC->printAST(level+4);
         printf("\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  else--");
-        elseC->printAST(level+8);
+        printf("  else\n");
+        elseC->printAST(level+4);
         printf("\n");
     }
 };
@@ -591,28 +700,31 @@ class ForAST : public CommandAST{
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("for:\n");
+        printf("For:\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  start--");
-        start->printAST(level+8);
+        printf("  start:\n");
+        start->printAST(level+4);
         printf("\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  condition--");
-        condition->printAST(level+8);
+        printf("  condition:\n");
+        condition->printAST(level+4);
         printf("\n");
-
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  body--");
-        body->printAST();
+        printf("  step: %lld\n",step);
         printf("\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  for body:\n");
+        body->printAST(level+4);
     }
 };
 
@@ -631,21 +743,20 @@ class WhileAST : public CommandAST{
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("while:\n");
+        printf("While:\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  condition--");
-        condition->printAST(level+8);
+        printf("  condition:");
+        condition->printAST(level+4);
         printf("\n");
 
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("  body--");
-        body->printAST(level+8);
-        printf("\n");
+        printf("  body:");
+        body->printAST(level+4);
     }
 };
 
@@ -662,8 +773,8 @@ class ReturnAST : public CommandAST{
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("return  value--");
-        value->printAST(level);
+        printf("Return: \n");
+        value->printAST(level+4);
     }
 };
 
@@ -676,7 +787,7 @@ class BreakAST : public CommandAST{
         for(int i=0;i<level;i++){
             printf(" ");
         }
-        printf("break");
+        printf("Break");
     }
 };
 
@@ -692,10 +803,17 @@ public:
         //cmds = c;
     }
     void printAST(int level=0){
-        printf("block: \n");
-        for(int i =0;i<cmds.size();i++){
-            cmds[i]->printAST(level+4);
-            //printf("\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        if(cmds.size()==0){
+            printf("Block: empty\n");
+        }else{
+            printf("Block: \n");
+            for(int i =0;i<cmds.size();i++){
+                cmds[i]->printAST(level+4);
+                printf("\n");
+            }
         }
     }
 };
@@ -714,15 +832,33 @@ public:
 	}
 
     void printAST(int level=0){
-        
-        printf("prototype:\n");
-        printf("  returnType--");  
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("Prototype:\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  returnType: ");  
         returnType->printAST();
-        printf("\n  name--%s\n",Name.c_str());
+        printf("\n");
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
+        printf("  name: %s\n",Name.c_str());
+        for(int i=0;i<level;i++){
+            printf(" ");
+        }
         printf("  args:\n");
         for(int i=0;i<Args.size();i++){
-            printf("    arg%d :    name--%s\n",i,Args[i].first.c_str());
-            printf("              type--");
+            for(int i=0;i<level;i++){
+                printf(" ");
+            }
+            printf("    arg%d :    name: %s\n",i,Args[i].first.c_str());
+            for(int i=0;i<level;i++){
+                printf(" ");
+            }
+            printf("              type: ");
             Args[i].second->printAST();
             printf("\n");
         }
@@ -745,11 +881,8 @@ public:
 	}
 
     void printAST(int level=0){
-        for(int i=0;i<level;i++){
-            printf(" ");
-        }
         printf("function: \n");
-        Proto->printAST();
-        Body->printAST(level);
+        Proto->printAST(level+4);
+        Body->printAST(level+4);
     }
 };
