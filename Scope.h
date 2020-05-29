@@ -62,6 +62,7 @@ const QFunction* getFunction(std::string fname){
 }
 
 bool addSymbol(std::string name , QAlloca* Alloca){
+    if(symbolTable.size()==0) {Bug("No scopes",0); exit(1);}
     std::map<std::string,const QAlloca*> &scope = symbolTable.back();
     if(scope.find(name) != scope.end()){
         return false; //cannot get the line number, thus ask codegen to emit error info

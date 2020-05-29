@@ -47,35 +47,44 @@ bool CompareQType(QType* q1, QType* q2){
 }
 
 llvm::Type* IntType::getLLVMType() const{
-    switch(width){
-        case 1:
-            return Type::getInt1Ty(TheContext);
-        case 8:
-            return Type::getInt8Ty(TheContext);
-        case 16:
-            return Type::getInt16Ty(TheContext);
-        case 32:
-            return Type::getInt32Ty(TheContext);
-        case 64:
-            return Type::getInt64Ty(TheContext);
-        case 128:
-            return Type::getIntNTy(TheContext,128);
-        default: 
-            Bug("unvalid int width",0);
-            exit(1);
-    }
+    check_valid();
+    return Type::getIntNTy(TheContext,width);
+
+//     switch(width){
+//         case 1:
+//             return Type::getInt1Ty(TheContext);
+//         case 8:
+//             return Type::getInt8Ty(TheContext);
+//         case 16:
+//             return Type::getInt16Ty(TheContext);
+//         case 32:
+//             return Type::getInt32Ty(TheContext);
+//         case 64:
+//             return Type::getInt64Ty(TheContext);
+//         case 128:
+//             return Type::getIntNTy(TheContext,128);
+//         default:
+//             Bug("unvalid int width",0);
+//             exit(1);
+//     }
 }
 
 llvm::PointerType* PointType::getLLVMType() const{
-    if(elementType->getIsPointer()){
-        PointType* pointT = dynamic_cast<PointType*>(elementType);
-        llvm::PointerType* pt = PointerType::get(pointT->getLLVMType(),pointT->getLLVMType()->getAddressSpace());
-        return pt;
-    }else{
-        IntType* intT = dynamic_cast<IntType*>(elementType);
-        llvm::PointerType* pt = Type::getIntNPtrTy(TheContext,intT->getWidth());
-        return pt;
-    }
+
+    return elementType->getLLVMType()->getPointerTo(0); // TODO Is it correct to set address space to 0 here?
+
+
+//     return PointerType::get(elementType->getLLVMType());
+
+//     if(elementType->getIsPointer()){
+//         PointType* pointT = dynamic_cast<PointType*>(elementType);
+//         llvm::PointerType* pt = PointerType::get(pointT->getLLVMType(),pointT->getLLVMType()->getAddressSpace());
+//         return pt;
+//     }else{
+//         IntType* intT = dynamic_cast<IntType*>(elementType);
+//         llvm::PointerType* pt = Type::getIntNPtrTy(TheContext,intT->getWidth());
+//         return pt;
+//     }
     
 }
 
@@ -141,28 +150,40 @@ QValue* ArrayIndexExprAST::codegenLeft(){
  
 }
 
-QValue* VarOrPointerAST::codegen(){
-    const QAlloca* Alloca = findSymbol(name);
-
-    if(!Alloca){
-        ErrorQ("Undeclared variables",0);
-        return NULL;
-    }
-
-    llvm::AllocaInst* v = Alloca->getAlloca();
-    llvm::Value* load = Builder.CreateLoad(v);
-    QType* type = Alloca->getType();
-    return new QValue(type,load);
-}
-
-QValue* ArrayIndexExprAST::codegen(){
+QValue* LeftValueAST::codegen() {
     QValue* Alloca = codegenLeft();
     return new QValue(Alloca->getType(),Builder.CreateLoad(Alloca->getValue()));
 }
 
+
+// QValue* VarOrPointerAST::codegen(){
+//
+//     QValue *leftv = codegenLeft();
+//     llvm::Value* load = Builder.CreateLoad(leftv->getValue());
+//
+//     return new QValue(leftv->getType(),load);
+//
+//     const QAlloca* Alloca = findSymbol(name);
+//
+//     if(!Alloca){
+//         ErrorQ("Undeclared variables",0);
+//         return NULL;
+//     }
+//
+//     llvm::AllocaInst* v = Alloca->getAlloca();
+//     llvm::Value* load = Builder.CreateLoad(v);
+//     QType* type = Alloca->getType();
+//     return new QValue(type,load);
+// }
+//
+// QValue* ArrayIndexExprAST::codegen(){
+//     QValue* Alloca = codegenLeft();
+//     return new QValue(Alloca->getType(),Builder.CreateLoad(Alloca->getValue()));
+// }
+
 QValue* NumberExprAST::codegen(){
     llvm::Value* constInt;
-    QType* qtype;
+    QType* qtype // = this->ty;
     if(value>=0){
         constInt = ConstantInt::get(TheContext, APInt(128,value));
         qtype = new IntType(false,128);
@@ -188,7 +209,7 @@ QValue* UnaryExprAST::codegen(){
 
         IntType* intType = dynamic_cast<IntType*>(type);
         if(intType->getSigned()!=false || intType->getWidth()!=1){
-            ErrorQ("the type of right of the exclamation point must be unsigned int",0);
+            ErrorQ("the type of right of the exclamation point must be unsigned int of width 1",0);
             return NULL;
         }
 
@@ -217,6 +238,49 @@ QValue* UnaryExprAST::codegen(){
     return NULL;
 }
 
+
+/*
+
+  align_const (c, type)
+    check that c fits into type
+    return (QValue(type,LLVM_get_const(type->llvm_type(),c)))
+
+  align expr1, expr2
+
+    qv1 = expr1->codegen
+    qv2 = expr2->codegen
+
+     check that qv1, qv2 are integers
+
+     // Const align
+     if expr1.is_const && !expr2.is_const
+       qv1 = align_const(expr1.get_const(),qv2.type)
+     else if !qv1.is_const && qv2.is_const
+       qv1 = align_const(expr2.get_const(),qv1.type)
+
+
+
+    // signed check
+    check qv1.signed == qv2.signed
+
+     v1 = qv1.codegen()
+     v2 = qv2.codegen()
+
+
+
+    // operand align
+    if (qv1.width < qv2.width)
+      v1 = llvm_extend_to(v1,qv2.type.llvm_type())  // createIntCast
+    else if (qv2.width < qv1.width)
+      v2 = extend_to(v2,qv1.type.llvm_type())       // createIntCast
+
+    // Now v1, v2 are of same width and sign
+
+    generate llvm instruction with v1,v2
+
+*/
+
+
 QValue* BinaryExprAST::codegen(){
     
     llvm::Value* result;
@@ -228,7 +292,10 @@ QValue* BinaryExprAST::codegen(){
     QType* rightT = rightQV->getType();
 
     QType* resultType = leftT;
+    // a+b :: intN * intN -> intN
+    // a<b :: intN * intN -> bool
 
+    // TODO "ptr1 - ptr2" only makes sense if you also have "ptr1 + intN". Maybe do not support minus for ptrs!
     if(leftT->getIsPointer()==true && rightT->getIsPointer() && op==Operators::minus){
         return NULL;
     }else if(leftT->getIsPointer()==false && rightT->getIsPointer()==false){

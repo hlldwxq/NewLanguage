@@ -89,9 +89,12 @@ public:
     bool getIsPointer() const{
         return isPointer;
     }
-    virtual llvm::Type* getLLVMType() const{return NULL;};
-    virtual void printAST() const{}
-    virtual const QType* getElementType() const{ return NULL; }
+    virtual llvm::Type* getLLVMType() const = 0; //{return NULL;};
+    virtual void printAST() const = 0; //{}
+    virtual const QType* getElementType() const= 0; //{ return NULL; }
+
+    virtual bool compare(QType const* ty) const = 0;
+
 };
 
 class ReturnType{
@@ -125,6 +128,7 @@ public:
             qType->printAST();
         }
     }
+
 };
 
 class IntType : public QType{
@@ -134,6 +138,7 @@ public:
     IntType(bool s,unsigned long long w):QType(false){
         isSigned = s;
         width = w;
+        check_valid();
     }
     bool getSigned() const{
         return isSigned;
@@ -152,6 +157,31 @@ public:
     }
     llvm::Type* getLLVMType() const;
     const QType* getElementType() const{ return NULL; }
+
+    void check_valid() const {
+      switch(width){
+        case 1:
+        case 8:
+        case 16:
+        case 32:
+        case 64:
+        case 128:
+            break;
+        default:
+            Bug("invalid int width",0);
+            exit(1);
+      }
+    }
+
+
+    virtual bool compare(QType const* ty) const {
+      if (ty->getIsPointer()) return false;
+      IntType const*ity = dynamic_cast<IntType const*>(ty);
+      return getSigned()==ity->getSigned() && getWidth()==ity->getWidth();
+    }
+
+
+
 };
 
 class PointType : public QType{
@@ -168,12 +198,23 @@ public:
     void printAST() const{
         const QType* p = elementType;
         printf("*");
-        while(p->getIsPointer()){
-            printf("*");
-            p = p->getElementType();
-        }
         p->printAST();
+//         while(p->getIsPointer()){
+//             printf("*");
+//             p = p->getElementType();
+//         }
+//         p->printAST();
     }
+
+    virtual bool compare(QType const* ty) const {
+      if (!ty->getIsPointer()) return false;
+      PointType const*pty = dynamic_cast<PointType const*>(ty);
+      return getElementType()->compare(pty->getElementType());
+    }
+
+
+
+
 };
 
 bool ComparePointType(PointType* p1,PointType* p2);
@@ -246,7 +287,7 @@ public:
     LeftValueAST(ASTType type):ExprAST(type){}
     virtual ~LeftValueAST(){}
     virtual void printAST(int level=0){}
-    virtual QValue* codegen(){ return NULL; }
+    virtual QValue* codegen(); //{ return NULL; }
     virtual QValue* codegenLeft(){ return NULL;}
 };
 
@@ -273,7 +314,7 @@ public:
 
         printf("%s",name.c_str());
     }
-    QValue* codegen();
+//     QValue* codegen();
     QValue* codegenLeft();
 };
 
@@ -288,7 +329,7 @@ public:
         index = std::move(index1);
     }
     QValue* codegenLeft();
-    QValue* codegen();
+//     QValue* codegen();
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");
@@ -312,6 +353,7 @@ public:
 // Constant Number
 class NumberExprAST : public ExprAST{
     long long value;
+    // IntegerType ty  --> 7384213U64  7384213S64
 public:
     NumberExprAST(long long val):ExprAST(ASTType::number){
         value = val;
