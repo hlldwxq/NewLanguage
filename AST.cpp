@@ -45,6 +45,7 @@ bool CompareQType(QType* q1, QType* q2){
         }
     }
 }
+
 llvm::Type* IntType::getLLVMType() const{
     switch(width){
         case 1:
@@ -170,14 +171,6 @@ QValue* NumberExprAST::codegen(){
         qtype = new IntType(true,128);
     }
     return new QValue(qtype,constInt);
-}
-
-QValue* NullExprAST::codegen(){
-    return NULL;
-}
-
-QValue* CallExprAST::codegen(){
-    return NULL;
 }
 
 QValue* UnaryExprAST::codegen(){
@@ -371,10 +364,6 @@ QValue* NewExprAST::codegen(){
     return new QValue(type,result);
 }
 
-bool CallExprAST::codegenCommand(){
-    return true;
-}
-
 bool VarDefAST::codegenCommand(){
     
     llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
@@ -531,18 +520,6 @@ bool AssignAST::codegenCommand(){
 
 }
 
-bool IfAST::codegenCommand(){
-    return true;
-}
-
-bool ForAST::codegenCommand(){
-    return true;
-}
-
-bool WhileAST::codegenCommand(){
-    return true;
-}
-
 bool ReturnAST::codegenCommand(){
     const QAlloca* returnAlloca = findSymbol("return");
     if(!returnAlloca){
@@ -590,23 +567,11 @@ bool ReturnAST::codegenCommand(){
     return true;
 }
 
-bool BreakAST::codegenCommand(){
-    return true;
-}
-
 bool BlockAST::codegenCommand(){
 
     for(int i=0 ; i < cmds.size(); i++){
         bool success = cmds[i]->codegenCommand();
     }
-    return true;
-}
-
-bool VarDefAST::codegenStructure(){
-    return true;
-}
-
-bool ArrayDefAST::codegenStructure(){
     return true;
 }
 
@@ -679,5 +644,41 @@ bool FunctionAST::codegenStructure(){
         llvm::Value* retValue = Builder.CreateLoad(retAlloca);
 		Builder.CreateRet(retValue);
     }
+    return true;
+}
+
+QValue* NullExprAST::codegen(){
+    return NULL;
+}
+
+QValue* CallExprAST::codegen(){
+    return NULL;
+}
+
+bool CallExprAST::codegenCommand(){
+    return true;
+}
+
+bool IfAST::codegenCommand(){
+    return true;
+}
+
+bool ForAST::codegenCommand(){
+    return true;
+}
+
+bool WhileAST::codegenCommand(){
+    return true;
+}
+
+bool BreakAST::codegenCommand(){
+    return true;
+}
+
+bool VarDefAST::codegenStructure(){
+    return true;
+}
+
+bool ArrayDefAST::codegenStructure(){
     return true;
 }
