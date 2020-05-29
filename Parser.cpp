@@ -5,6 +5,11 @@ void Bug(const char * info,int lineN){
 	exit(1);
 }
 
+void ErrorQ(const char * info, int line){
+    fprintf(stderr, "Syntax Error: line %d -- %s\n",line, info);
+// return nullptr;
+}
+
 void Parser::initPrecedence(){
     BinopPrecedence[Token::assignment] = 2;         // =
     BinopPrecedence[Token::andT] = 5;               //&
@@ -92,18 +97,30 @@ Token Parser::gettok(){
             return Token::tok_new;
         if(IdentifierStr == "null")
             return Token::tok_null;
-        if(IdentifierStr == "int1")
-            return Token::tok_i1;
-        if(IdentifierStr == "int8")
-            return Token::tok_i8;
-        if(IdentifierStr == "int16")
-            return Token::tok_i16;
-        if(IdentifierStr == "int32")
-            return Token::tok_i32;
-        if(IdentifierStr == "int64")
-            return Token::tok_i64;
-        if(IdentifierStr == "int128")
-            return Token::tok_i128;
+        if(IdentifierStr == "sint1")
+            return Token::tok_si1;
+        if(IdentifierStr == "sint8")
+            return Token::tok_si8;
+        if(IdentifierStr == "sint16")
+            return Token::tok_si16;
+        if(IdentifierStr == "sint32")
+            return Token::tok_si32;
+        if(IdentifierStr == "sint64")
+            return Token::tok_si64;
+        if(IdentifierStr == "sint128")
+            return Token::tok_si128;
+        if(IdentifierStr == "uint1")
+            return Token::tok_ui1;
+        if(IdentifierStr == "uint8")
+            return Token::tok_ui8;
+        if(IdentifierStr == "uint16")
+            return Token::tok_ui16;
+        if(IdentifierStr == "uint32")
+            return Token::tok_ui32;
+        if(IdentifierStr == "uint64")
+            return Token::tok_ui64;
+        if(IdentifierStr == "uint128")
+            return Token::tok_ui128;
         if(IdentifierStr == "true")
             return Token::tok_true;
         if(IdentifierStr == "false")
@@ -260,11 +277,6 @@ Token Parser::getNextToken(){
     return CurTok;
 }
 
-void Parser::ErrorQ(const char * info, int line){
-    fprintf(stderr, "Syntax Error: line %d -- %s\n",line, info);
-// return nullptr;
-}
-
 int Parser::GetTokPrecedence(){
     if(BinopPrecedence.empty()){
         initPrecedence();
@@ -278,9 +290,83 @@ int Parser::GetTokPrecedence(){
 }
 
 bool Parser::isType(){
-    if( CurTok == Token::tok_i1 || CurTok == Token::tok_i8|| CurTok == Token::tok_i16|| CurTok == Token::tok_i32 || CurTok == Token::tok_i64||  CurTok == Token::tok_i128 )
+    if( CurTok == Token::tok_ui1 || CurTok == Token::tok_ui8|| CurTok == Token::tok_ui16|| CurTok == Token::tok_ui32 || CurTok == Token::tok_ui64||  CurTok == Token::tok_ui128 )
+        return true;
+    if( CurTok == Token::tok_si1 || CurTok == Token::tok_si8|| CurTok == Token::tok_si16|| CurTok == Token::tok_si32 || CurTok == Token::tok_si64||  CurTok == Token::tok_si128 )
         return true;
     return false;
+}
+
+QType* Parser::ParseType(){
+    
+    if(!isType()){
+        fprintf(stderr, "Syntax Error1: line %d -- %d\n",lineN, static_cast<int>(CurTok));
+        ErrorQ("except a type",lineN);
+        return NULL;
+    }
+    unsigned long long width;
+    bool isSigned;
+    switch(CurTok){
+        case Token::tok_si1:
+        width = 1;
+        isSigned = true;
+        break;
+        case Token::tok_si8:
+        width = 8;
+        isSigned = true;
+        break;
+        case Token::tok_si16:
+        width = 16;
+        isSigned = true;
+        break;
+        case Token::tok_si32:
+        width = 32;
+        isSigned = true;
+        break;
+        case Token::tok_si64:
+        width = 64;
+        isSigned = true;
+        break;
+        case Token::tok_si128:
+        width = 128;
+        isSigned = true;
+        break;
+        case Token::tok_ui1:
+        width = 1;
+        isSigned = false;
+        break;
+        case Token::tok_ui8:
+        width = 8;
+        isSigned = false;
+        break;
+        case Token::tok_ui16:
+        width = 16;
+        isSigned = false;
+        break;
+        case Token::tok_ui32:
+        width = 32;
+        isSigned = false;
+        break;
+        case Token::tok_ui64:
+        width = 64;
+        isSigned = false;
+        break;
+        case Token::tok_ui128:
+        width = 128;
+        isSigned = false;
+        break;
+        default:
+        ErrorQ("expect a type",lineN);
+        return nullptr;
+    }
+    QType* type = new IntType(isSigned,width);
+    getNextToken();
+    while(CurTok==Token::star){
+        type = new PointType(type);
+        getNextToken();
+    }
+
+    return type;
 }
 
 void Parser::Parse(){
@@ -288,7 +374,8 @@ void Parser::Parse(){
     while(CurTok != Token::tok_eof){
         std::unique_ptr<StructureAST> structure = ParseStructure();
         if(structure != nullptr){
-            structure->printAST(0);
+            //structure->printAST();
+            structure->codegenStructure();
         }else{
             exit(1);
         }

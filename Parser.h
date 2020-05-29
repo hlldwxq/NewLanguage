@@ -31,10 +31,13 @@
 #include <fstream>
 #include "AST.h"
 
+extern std::unique_ptr<Module> TheModule;
+extern LLVMContext TheContext; 
 /// this function is reminding me there is bug, but maybe I will not get error info
 /// the function need to be removed in the future
 
 void Bug(const char * info,int lineN);
+void ErrorQ(const char * info, int line);
 
 enum class Token
 {
@@ -61,12 +64,19 @@ enum class Token
     tok_null,
 
 	//type
-	tok_i1 ,
-	tok_i8 ,
-	tok_i16,
-	tok_i32,
-	tok_i64,
-	tok_i128,
+	tok_si1 ,
+	tok_si8 ,
+	tok_si16,
+	tok_si32,
+	tok_si64,
+	tok_si128,
+
+	tok_ui1 ,
+	tok_ui8 ,
+	tok_ui16,
+	tok_ui32,
+	tok_ui64,
+	tok_ui128,
 
     tok_true,
     tok_false,
@@ -114,9 +124,10 @@ private:
 	int getChar();
 	Token gettok();  		   // gettok - Return the next token from standard input.
 	
-	void ErrorQ(const char * info, int line);
 	int GetTokPrecedence();
 	bool isType();
+	QType* ParseType();
+	
 	//========Expression========================//
 	std::unique_ptr<NumberExprAST> ParseBoolConstantExpr();
 	std::unique_ptr<NullExprAST> ParseNullExpr();
@@ -142,14 +153,14 @@ private:
 	std::unique_ptr<CommandAST> ParseCommand();
 
 	//==========structure========================//
-	VarAndPointType* ParseType();
 	std::unique_ptr<StructureAST> ParseProtoOrFunction();
 	std::unique_ptr<StructureAST> ParseStructure();
 public:
-Token getNextToken();
+	
 	Parser(const std::string &file){
 		fileStr = file;
 		initPrecedence();
 	}
+	Token getNextToken();
 	void Parse();
 };

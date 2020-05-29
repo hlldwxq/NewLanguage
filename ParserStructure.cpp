@@ -1,46 +1,5 @@
 #include "Parser.h"
 
-VarAndPointType* Parser::ParseType(){
-    
-    if(!isType()){
-        fprintf(stderr, "Syntax Error1: line %d -- %d\n",lineN, static_cast<int>(CurTok));
-        ErrorQ("except a type",lineN);
-        return NULL;
-    }
-    VarType vt;
-    switch(CurTok){
-        case Token::tok_i1:
-            vt = VarType::int1;
-            break;
-        case Token::tok_i8:
-            vt = VarType::int8;
-            break;
-        case Token::tok_i16:
-            vt = VarType::int16;
-            break;
-        case Token::tok_i32:
-            vt = VarType::int32;
-            break;
-        case Token::tok_i64:
-            vt = VarType::int64;
-            break;
-        case Token::tok_i128:
-            vt = VarType::int128;
-            break;
-        default:
-            Bug("switch type error for global var and array",lineN);
-            break;
-    }
-    VarAndPointType* type = new IntType(vt);
-    getNextToken();
-    while(CurTok==Token::star){
-        type = new PointType(type);
-        getNextToken();
-    }
-
-    return type;
-}
-
 /// prototype::=def type functionName( arg* , ) ;
 std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
     if(CurTok != Token::tok_def){
@@ -51,14 +10,14 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
     getNextToken();  //eat def
     ReturnType* returnType = NULL;
     std::string FnName;
-    std::vector<std::pair<std::string,VarAndPointType*>> args;
+    std::vector<std::pair<std::string,QType*>> args;
     
     //get return Type
     if(CurTok == Token::tok_void){
-        returnType = new voidType();
+        returnType = new ReturnType(true);
         getNextToken();
     }else{ 
-        returnType = ParseType();
+        returnType = new ReturnType(ParseType());
     }
     if(returnType==NULL){
         return nullptr;
@@ -85,7 +44,7 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
             ErrorQ("expected a type for a argument",lineN);
             return nullptr;
         }
-        VarAndPointType* t = ParseType();
+        QType* t = ParseType();
         if(t==NULL){
             return nullptr; 
         }

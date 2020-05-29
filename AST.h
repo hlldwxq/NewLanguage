@@ -17,12 +17,20 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include <utility>
-
+#include <vector>
+#include <map>
+#include <string>
+#include <climits> 
 using namespace llvm;
-//using namespace llvm::orc;
+
+extern std::unique_ptr<Module> TheModule;
+static LLVMContext TheContext;
+static IRBuilder<> Builder(TheContext);
+
+extern void Bug(const char * info,int lineN);
 
 enum class ASTType{
-	variable,
+	var_or_pointer,
 	arrayIndex,
 	number,
 	call,
@@ -54,7 +62,7 @@ enum class Operators{
 	plus_sign,   //+
 	minus,       //-
 	star,        //*
-	disvision,   // /
+	division,   // /
 	left_paren,  // (
 	right_paren, // )
 	left_square_bracket,  // [
@@ -70,117 +78,137 @@ enum class Operators{
 	assignment,           // =
 };
 
-enum class VarType{
-    //type
-	int1,
-	int8,
-	int16,
-	int32,
-	int64,
-	int128
-};
-
-enum class TypeType{
-    intType,
-    pointerType,
-    voidType
+// type class
+class QType{
+    bool isPointer;
+public:
+    QType(bool isP){
+        isPointer = isP;
+    }
+    virtual ~QType(){}
+    bool getIsPointer() const{
+        return isPointer;
+    }
+    virtual llvm::Type* getLLVMType() const{return NULL;};
+    virtual void printAST() const{}
+    virtual const QType* getElementType() const{ return NULL; }
 };
 
 class ReturnType{
-    protected:
-    TypeType typeOfType;
+protected:
+    QType* qType;
+    bool isVoid;
 
-    public:
-    ReturnType(TypeType t){
-        typeOfType = t;
+public:
+    ReturnType(QType* q){
+        qType = q;
+    }
+    ReturnType(bool isV = true){
+        isVoid = isV;
     }
     virtual ~ReturnType(){}
 
-    TypeType getType(){
-        return typeOfType;
+    QType* getType() const{
+        return qType;
     }
-    virtual void printAST(){}
-};
 
-class VarAndPointType : public ReturnType{
-    
-    public:
-        VarAndPointType(TypeType t):ReturnType(t){}
-        virtual ~VarAndPointType(){}
-        virtual void printAST(){}
-};
-
-class voidType : public ReturnType{
-    public:
-        voidType():ReturnType(TypeType::voidType){}
-        void printAST(){printf("void");}
-};
-
-class IntType : public VarAndPointType{
-    VarType type;
-public:
-    IntType(VarType type1) : VarAndPointType(TypeType::intType){
-        type = type1;
+    bool getIsVoid() const{
+        return isVoid;
     }
-    VarType getType(){
-        return type;
-    }
-    void printAST(){
-        switch(type){
-            case VarType::int1:  
-                printf("int1");
-                break;
-            case VarType::int8:  
-                printf("int8");
-                break;
-            case VarType::int16:  
-                printf("int16");
-                break;
-            case VarType::int32:  
-                printf("int32");
-                break;
-            case VarType::int64:  
-                printf("int64");
-                break;
-            case VarType::int128:  
-                printf("int128");
-                break;
+
+    llvm::Type* getLLVMType() const;
+
+    virtual void printAST() const{
+        if(isVoid)
+            printf("void");
+        else{
+            qType->printAST();
         }
-       
     }
 };
 
-class PointType : public VarAndPointType{
-    VarAndPointType* elementType;
+class IntType : public QType{
+    bool isSigned;
+    unsigned long long width;
 public:
-    PointType(VarAndPointType* elementType1) : VarAndPointType(TypeType::pointerType){
+    IntType(bool s,unsigned long long w):QType(false){
+        isSigned = s;
+        width = w;
+    }
+    bool getSigned() const{
+        return isSigned;
+    }
+    unsigned long long getWidth() const{
+        return width;
+    }
+    void printAST() const{
+        if(isSigned){
+            printf("signed ");
+        }else{
+            printf("unsigned ");
+        }
+
+        printf("int%lld",width);
+    }
+    llvm::Type* getLLVMType() const;
+    const QType* getElementType() const{ return NULL; }
+};
+
+class PointType : public QType{
+    QType* elementType;
+public:
+
+    PointType(QType* elementType1) : QType(true){
         elementType = elementType1;
     }
-    VarAndPointType* getElementType(){
+    QType* getElementType() const{
         return elementType;
     }
-    void printAST(){
-        VarAndPointType* p = elementType;
+    llvm::PointerType* getLLVMType() const;
+    void printAST() const{
+        const QType* p = elementType;
         printf("*");
-        while(p->getType()==TypeType::pointerType){
+        while(p->getIsPointer()){
             printf("*");
-            p = ((dynamic_cast<PointType*>(p))->getElementType());
+            p = p->getElementType();
         }
-        (static_cast<IntType*>(p))->printAST();
+        p->printAST();
     }
 };
+
+bool ComparePointType(PointType* p1,PointType* p2);
+
+//Value
+class QValue{
+    QType* qtype;
+    llvm::Value* value;
+public:
+    QValue(QType* q, llvm::Value* v){
+        qtype = q;
+        value = v;
+    }
+    QType* getType() const{
+        return qtype;
+    }
+    llvm::Value* getValue() const{
+        return value;
+    }
+};
+
 
 //Base class
 class AST{
 protected:
     ASTType astType;
+    int line;
 public:
     AST(ASTType type){
         astType = type;
     }
     virtual ~AST(){}
-    int getType();
-
+    ASTType getType(){
+        return astType;
+    }
     virtual void printAST(int level=0){}
 };
 
@@ -190,7 +218,7 @@ public:
     ExprAST(ASTType type):AST(type){
     }
     virtual ~ExprAST(){}
-    Value* codegen();
+    virtual QValue* codegen()=0;
     virtual void printAST(int level=0){}
 };
 
@@ -199,7 +227,7 @@ class CommandAST : public AST{
 public:
     CommandAST(ASTType type):AST(type){}
     virtual ~CommandAST(){}
-    Value* codegen();
+    virtual bool codegenCommand()=0;
     virtual void printAST(int level=0){}
 };
 
@@ -208,8 +236,8 @@ class StructureAST : public AST{
 public:
     StructureAST(ASTType type):AST(type){}
     virtual ~StructureAST(){}
-    GlobalObject* structureCodegen();
-    virtual void printAST(int level=0){}
+    virtual bool codegenStructure()=0;
+    virtual void printAST(int level=0) {}
 };
 
 // LeftValue  is also expression
@@ -218,6 +246,8 @@ public:
     LeftValueAST(ASTType type):ExprAST(type){}
     virtual ~LeftValueAST(){}
     virtual void printAST(int level=0){}
+    virtual QValue* codegen(){ return NULL; }
+    virtual QValue* codegenLeft(){ return NULL;}
 };
 
 // Variable
@@ -225,11 +255,11 @@ class VarOrPointerAST : public LeftValueAST{
     std::string name;
     bool isPointer;
 public:
-    VarOrPointerAST(const std::string &Name, bool isP = false) : LeftValueAST(ASTType::variable) {
+    VarOrPointerAST(std::string Name, bool isP = false) : LeftValueAST(ASTType::var_or_pointer) {
 		name = Name;
         isPointer = isP;
 	}
-	const std::string &getName() const { return name; }
+	std::string getName() { return name; }
 
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -243,6 +273,8 @@ public:
 
         printf("%s",name.c_str());
     }
+    QValue* codegen();
+    QValue* codegenLeft();
 };
 
 // arrayIndex
@@ -255,7 +287,8 @@ public:
         pointer = std::move(p);
         index = std::move(index1);
     }
-
+    QValue* codegenLeft();
+    QValue* codegen();
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");
@@ -278,11 +311,13 @@ public:
 
 // Constant Number
 class NumberExprAST : public ExprAST{
-
     long long value;
 public:
     NumberExprAST(long long val):ExprAST(ASTType::number){
         value = val;
+    }
+    long long getValue(){
+        return value;
     }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -290,6 +325,7 @@ public:
         }
         printf("number: %lld",value);
     }
+    QValue* codegen();
 };
 
 // NullPointer
@@ -297,12 +333,13 @@ class NullExprAST : public ExprAST{
 public:
     NullExprAST():ExprAST(ASTType::nullT){}
 
-    void printAST(int level=0){
+    void printAST(int level=0) {
         for(int i=0;i<level;i++){
             printf(" ");
         }
         printf("null pointer");
     }
+    QValue* codegen();
 };
 
 /// CallExprAST - Expression class for function calls.
@@ -312,11 +349,10 @@ class CallExprAST : public ExprAST, public CommandAST
 	std::vector<std::unique_ptr<ExprAST>> args;
 
 public:
-	CallExprAST(const std::string &functionName1, std::vector<std::unique_ptr<ExprAST>> args1)
-		       : ExprAST(ASTType::call), CommandAST(ASTType::call)
+	CallExprAST(std::string functionName1, std::vector<std::unique_ptr<ExprAST>> args1)
+		       : ExprAST(ASTType::call), CommandAST(ASTType::call), args(std::move(args1))
     {
         functionName = functionName1;
-        args = std::move(args1); 
     }
 
     void printAST(int level=0){
@@ -346,6 +382,8 @@ public:
         }
 
     }
+    bool codegenCommand();
+    QValue* codegen();
 };
 
 /// UnaryExprAST - Expression class for a unary operator.
@@ -359,6 +397,8 @@ public:
         opCode = opCode1;
         Operand = move(Operand1);
     }
+
+    QValue* codegen();
 
     void printAST(int level=0){
 
@@ -374,6 +414,9 @@ public:
             break;
             case Operators::exclamation_point:
             printf("!");
+            break;
+            default:
+            printf("wrong unary op");
             break;
         }
         printf("\n");
@@ -438,7 +481,7 @@ public:
             case Operators::star:        //*
                 printf("*");
                 break;
-	        case Operators::disvision:   // /
+	        case Operators::division:   // /
                 printf("/");
                 break;
         	case Operators::more_sign:   // >
@@ -469,19 +512,25 @@ public:
         RHS->printAST(level+4);
     }
 
+    QValue* codegen();
+
 };
 
 /// newExprAST
 class NewExprAST : public ExprAST{
-    VarType type; 
-    std::vector<std::unique_ptr<ExprAST>> args;
+    QType* type; 
+    std::unique_ptr<ExprAST> size;
 public:
-    NewExprAST(VarType type1, std::vector<std::unique_ptr<ExprAST>> args1) 
+    NewExprAST(QType* type1, std::unique_ptr<ExprAST> size1) 
               :ExprAST(ASTType::newT)
     {
         type = type1;
-        args = std::move(args1);
+        size = std::move(size1);
     }
+    QType* getType(){
+        return type;
+    }
+
     void printAST(int level=0){
         for(int i=0;i<level;i++){
                 printf(" ");
@@ -491,44 +540,19 @@ public:
                 printf(" ");
             }
         printf("  type: ");
-        switch(type){
-            case VarType::int1:  
-                printf("int1");
-                break;
-            case VarType::int8:  
-                printf("int8");
-                break;
-            case VarType::int16:  
-                printf("int16");
-                break;
-            case VarType::int32:  
-                printf("int32");
-                break;
-            case VarType::int64:  
-                printf("int64");
-                break;
-            case VarType::int128:  
-                printf("int128");
-                break;
-        }
+        type->printAST();
         printf("\n");
         for(int i=0;i<level;i++){
             printf(" ");
         }
         printf("sizes:\n");
-
-        for(int i=0;i<args.size();i++){
-            for(int i=0;i<level;i++){
-                printf(" ");
-            }
-            printf(" size%d\n",i+1);
-            args[i]->printAST(level+4);
-            printf("\n");
-        }
+        size->printAST(level+4);
+        printf("\n");
     }
+    QValue* codegen();
 };
 
-class DefAST:public CommandAST, public StructureAST{
+class DefAST : public CommandAST, public StructureAST{
     bool global;
     public:
     DefAST(ASTType type,bool g) : CommandAST(type),StructureAST(type){
@@ -548,7 +572,8 @@ public:
         name = n;
         value = std::move(v);
     }
-    
+    bool codegenCommand();
+    bool codegenStructure();
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");
@@ -607,6 +632,8 @@ public:
         printf("  value: \n");
         value->printAST(level+4);
     }
+    bool codegenCommand();
+    bool codegenStructure();
 };
 
 ///AssignAST
@@ -636,6 +663,7 @@ class AssignAST : public CommandAST{
         printf("  right:\n");
         right->printAST(level+4);
     }
+    bool codegenCommand();
 };
 
 ///ifAST
@@ -651,7 +679,7 @@ class IfAST : public CommandAST{
         thenC = std::move(t);
         elseC = std::move(e);
     }
-
+    bool codegenCommand();
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");
@@ -726,6 +754,7 @@ class ForAST : public CommandAST{
         printf("  for body:\n");
         body->printAST(level+4);
     }
+    bool codegenCommand();
 };
 
 ///whileAST
@@ -734,8 +763,7 @@ class WhileAST : public CommandAST{
     std::unique_ptr<CommandAST> body;
     public:
     WhileAST(std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> cmd)
-            : CommandAST(ASTType::whileT)
-    {
+            : CommandAST(ASTType::whileT){
         condition = std::move(cond);
         body = std::move(cmd);
     }
@@ -758,15 +786,14 @@ class WhileAST : public CommandAST{
         printf("  body:");
         body->printAST(level+4);
     }
+    bool codegenCommand();
 };
 
 ///returnAST
 class ReturnAST : public CommandAST{
     std::unique_ptr<ExprAST> value;
     public:
-    ReturnAST(std::unique_ptr<ExprAST> v)
-             : CommandAST(ASTType::returnT)
-    {
+    ReturnAST(std::unique_ptr<ExprAST> v) : CommandAST(ASTType::returnT){
         value = std::move(v);
     }
     void printAST(int level=0){
@@ -776,11 +803,11 @@ class ReturnAST : public CommandAST{
         printf("Return: \n");
         value->printAST(level+4);
     }
+    bool codegenCommand();
 };
 
 ///breakAST
 class BreakAST : public CommandAST{
-  
     public:
     BreakAST():CommandAST(ASTType::breakT){}
     void printAST(int level=0){
@@ -789,12 +816,13 @@ class BreakAST : public CommandAST{
         }
         printf("Break");
     }
+    bool codegenCommand();
 };
 
 ///blockAST
 class BlockAST : public CommandAST{
     std::vector<std::unique_ptr<CommandAST>> cmds;
-public:
+    public:
     BlockAST(std::vector<std::unique_ptr<CommandAST>> c):CommandAST(ASTType::body){
         cmds = std::move(c);
     }
@@ -816,17 +844,18 @@ public:
             }
         }
     }
+    bool codegenCommand();
 };
 
 class PrototypeAST : public StructureAST
 {
 	std::string Name;
-	std::vector<std::pair<std::string,VarAndPointType*>> Args;
+	std::vector<std::pair<std::string,QType*>> Args;
     ReturnType* returnType;
 
 public:
-	PrototypeAST(const std::string &Name1, std::vector<std::pair<std::string,VarAndPointType*>> Args1, ReturnType* returnType1)
-		: Name(Name1),StructureAST(ASTType::proto){
+	PrototypeAST(const std::string &Name1, std::vector<std::pair<std::string,QType*>> Args1, ReturnType* returnType1)
+		: StructureAST(ASTType::proto),Name(Name1){
         Args = Args1;
         returnType = returnType1;
 	}
@@ -863,8 +892,17 @@ public:
             printf("\n");
         }
     }
-	const std::string &getName() const { return Name; }
 
+    std::string getFunctionName(){
+        return Name;
+    }
+    std::vector<std::pair<std::string,QType*>> getArgs(){
+        return Args;
+    }
+    ReturnType* getReturnType(){
+        return returnType;
+    }
+    bool codegenStructure();
 };
 
 /// FunctionAST - This class represents a function definition itself.
@@ -885,4 +923,5 @@ public:
         Proto->printAST(level+4);
         Body->printAST(level+4);
     }
+    bool codegenStructure();
 };

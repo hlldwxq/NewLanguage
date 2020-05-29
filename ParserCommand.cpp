@@ -133,37 +133,7 @@ std::unique_ptr<DefAST> Parser::ParseVarOrArrDef(bool global){
         Bug("call ParseVarOrArrDef, but no type",lineN);
     }
     Token CurType = CurTok;
-    VarType type;
-    switch(CurType){
-        case Token::tok_i1:
-        type = VarType::int1;
-        break;
-        case Token::tok_i8:
-        type = VarType::int8;
-        break;
-        case Token::tok_i16:
-        type = VarType::int16;
-        break;
-        case Token::tok_i32:
-        type = VarType::int32;
-        break;
-        case Token::tok_i64:
-        type = VarType::int64;
-        break;
-        case Token::tok_i128:
-        type = VarType::int128;
-        break;
-        default:
-        ErrorQ("expect a type",lineN);
-        return nullptr;
-    }
-    getNextToken(); //eat type
-
-    int ptr = 0;
-    while(CurTok == Token::star){
-        ptr++;
-        getNextToken();
-    }
+    QType* type = ParseType();
 
     if(CurTok!=Token::tok_identifier){
         ErrorQ("except name", lineN);
@@ -172,7 +142,7 @@ std::unique_ptr<DefAST> Parser::ParseVarOrArrDef(bool global){
     std::string name = IdentifierStr;
     getNextToken(); //eat name
 
-    if(ptr==0){
+    if(!type->getIsPointer()){
         std::unique_ptr<ExprAST> value;
         if(CurTok != Token::assignment){
             //default value
@@ -185,15 +155,8 @@ std::unique_ptr<DefAST> Parser::ParseVarOrArrDef(bool global){
             if(value==nullptr)
                 return nullptr;              
         }
-        IntType* i = new IntType(type);
-        return std::make_unique<VarDefAST>(i,name,std::move(value),global);
-    }
-    else{
-        IntType* i = new IntType(type);
-        PointType* pt = new PointType(i);
-        for(int i=1;i<ptr;i++){
-            pt = new PointType(pt);
-        }
+        return std::make_unique<VarDefAST>(dynamic_cast<IntType*>(type),name,std::move(value),global);
+    }else{
         std::unique_ptr<ExprAST> right;
         
         // if the indexs is empty, codegen should init the pointer as null
@@ -215,32 +178,30 @@ std::unique_ptr<DefAST> Parser::ParseVarOrArrDef(bool global){
                 ErrorQ("two types in a array definition need to be the same",lineN);
                 return nullptr;
             }
-            getNextToken(); //eat type
-
-            std::vector<std::unique_ptr<ExprAST>> indexs;
-            for(int i=0;i<ptr;i++){
-                if(CurTok!=Token::left_square_bracket){
-                   ErrorQ("unenough [, except [",lineN);
-                   return nullptr;
-                }
-                getNextToken(); //eat [
-
-                std::unique_ptr<ExprAST> index = ParseExpr();
-                if(index==nullptr)
-                    return nullptr;
-                indexs.push_back(std::move(index));
-
-                if(CurTok!=Token::right_square_bracket){
-                    ErrorQ("except ] in array definition",lineN);
-                    return nullptr;
-                }
-                getNextToken(); //eat ]
+            auto newType = ParseType();
+            
+            if(CurTok!=Token::left_square_bracket){
+                ErrorQ("unenough [, except [",lineN);
+                return nullptr;
             }
-            right = std::make_unique<NewExprAST>(type,std::move(indexs));
+            getNextToken(); //eat [
+
+            std::unique_ptr<ExprAST> index = ParseExpr();
+            if(index==nullptr)
+                return nullptr;
+
+            if(CurTok!=Token::right_square_bracket){
+                ErrorQ("except ] in array definition",lineN);
+                return nullptr;
+            }
+            getNextToken(); //eat ]
+            
+            right = std::make_unique<NewExprAST>(newType,std::move(index));
+
         }else{ // no assignment, default value is null
             right = std::make_unique<NullExprAST>();
         }
-        return std::make_unique<ArrayDefAST>(pt,name,std::move(right),global);
+        return std::make_unique<ArrayDefAST>(dynamic_cast<PointType*>(type),name,std::move(right),global);
     }
 }
 

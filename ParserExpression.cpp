@@ -210,7 +210,7 @@ std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec, std::unique_ptr<Exp
                 BinOp = Operators::star;
                 break;
             case Token::disvision:   // /
-                BinOp = Operators::disvision;
+                BinOp = Operators::division;
                 break;
             case Token::andT:                 // &
                 BinOp = Operators::andT;
@@ -254,7 +254,7 @@ std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec, std::unique_ptr<Exp
 	}
 }
 
-/// newExpr ::= new type name[expr1][expr2]
+/// newExpr ::= new type name[expr]
 std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
     if(CurTok != Token::tok_new){
         ErrorQ("except new", lineN);
@@ -266,53 +266,30 @@ std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
         ErrorQ("except a type", lineN);
         return nullptr;
     }
-    VarType type;
-    switch(CurTok){
-        case Token::tok_i1:
-        type = VarType::int1;
-        break;
-        case Token::tok_i8:
-        type = VarType::int8;
-        break;
-        case Token::tok_i16:
-        type = VarType::int16;
-        break;
-        case Token::tok_i32:
-        type = VarType::int32;
-        break;
-        case Token::tok_i64:
-        type = VarType::int64;
-        break;
-        case Token::tok_i128:
-        type = VarType::int128;
-        break;
-        default:
-        ErrorQ("expect a type",lineN);
+    
+    auto type = ParseType();
+    if(!type){
+        ErrorQ("except an type for new",lineN);
         return nullptr;
-    } 
-    getNextToken(); //eat type
+    }
+    
+    if(CurTok!=Token::left_square_bracket){
+        ErrorQ("unenough [, except [",lineN);
+        return nullptr;
+    }
+    getNextToken(); //eat [
 
-    std::vector<std::unique_ptr<ExprAST>> indexs;
-    do{
-        if(CurTok!=Token::left_square_bracket){
-            ErrorQ("unenough [, except [",lineN);
-            return nullptr;
-        }
-        getNextToken(); //eat [
+    std::unique_ptr<ExprAST> index = ParseExpr();
+    if(index==nullptr)
+        return nullptr;
 
-        std::unique_ptr<ExprAST> index = ParseExpr();
-        if(index==nullptr)
-            return nullptr;
-        indexs.push_back(std::move(index));
+    if(CurTok!=Token::right_square_bracket){
+        ErrorQ("except ] in array definition",lineN);
+        return nullptr;
+    }
+    getNextToken(); //eat ]
 
-        if(CurTok!=Token::right_square_bracket){
-            ErrorQ("except ] in array definition",lineN);
-            return nullptr;
-        }
-        getNextToken(); //eat ]
-    }while(CurTok==Token::left_square_bracket);
-
-    return std::make_unique<NewExprAST>(type,std::move(indexs));
+    return std::make_unique<NewExprAST>(type,std::move(index));
 }
 
 /// paren
