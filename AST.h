@@ -5,6 +5,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -16,6 +17,10 @@
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
+#include <utility>
 #include <utility>
 #include <vector>
 #include <map>
@@ -26,7 +31,7 @@ using namespace llvm;
 extern std::unique_ptr<Module> TheModule;
 static LLVMContext TheContext;
 static IRBuilder<> Builder(TheContext);
-
+void CallInitFunction();
 extern void Bug(const char * info,int lineN);
 
 enum class ASTType{
@@ -199,11 +204,6 @@ public:
         const QType* p = elementType;
         printf("*");
         p->printAST();
-//         while(p->getIsPointer()){
-//             printf("*");
-//             p = p->getElementType();
-//         }
-//         p->printAST();
     }
 
     virtual bool compare(QType const* ty) const {
@@ -211,9 +211,6 @@ public:
       PointType const*pty = dynamic_cast<PointType const*>(ty);
       return getElementType()->compare(pty->getElementType());
     }
-
-
-
 
 };
 
@@ -241,10 +238,11 @@ public:
 class AST{
 protected:
     ASTType astType;
-    int line;
+
 public:
     AST(ASTType type){
         astType = type;
+       
     }
     virtual ~AST(){}
     ASTType getType(){
@@ -255,8 +253,10 @@ public:
 
 // Expression
 class ExprAST : public AST{
+
 public:
     ExprAST(ASTType type):AST(type){
+       
     }
     virtual ~ExprAST(){}
     virtual QValue* codegen()=0;
@@ -265,8 +265,10 @@ public:
 
 // Commands
 class CommandAST : public AST{
+
 public:
-    CommandAST(ASTType type):AST(type){}
+    CommandAST(ASTType type):AST(type){
+    }
     virtual ~CommandAST(){}
     virtual bool codegenCommand()=0;
     virtual void printAST(int level=0){}
@@ -274,8 +276,10 @@ public:
 
 // structure
 class StructureAST : public AST{
+
 public:
-    StructureAST(ASTType type):AST(type){}
+    StructureAST(ASTType type):AST(type){
+    }
     virtual ~StructureAST(){}
     virtual bool codegenStructure()=0;
     virtual void printAST(int level=0) {}
@@ -283,8 +287,10 @@ public:
 
 // LeftValue  is also expression
 class LeftValueAST : public ExprAST{
+
 public:
-    LeftValueAST(ASTType type):ExprAST(type){}
+    LeftValueAST(ASTType type):ExprAST(type){
+    }
     virtual ~LeftValueAST(){}
     virtual void printAST(int level=0){}
     virtual QValue* codegen(); //{ return NULL; }
@@ -292,13 +298,16 @@ public:
 };
 
 // Variable
-class VarOrPointerAST : public LeftValueAST{
+class VariableAST : public LeftValueAST{
     std::string name;
     bool isPointer;
+    int line;
 public:
-    VarOrPointerAST(std::string Name, bool isP = false) : LeftValueAST(ASTType::var_or_pointer) {
+    VariableAST(std::string Name, int line1, bool isP = false) 
+                   :LeftValueAST(ASTType::var_or_pointer) {
 		name = Name;
         isPointer = isP;
+        line = line1;
 	}
 	std::string getName() { return name; }
 
@@ -322,11 +331,13 @@ public:
 class ArrayIndexExprAST: public LeftValueAST{
     std::unique_ptr<ExprAST> pointer; 
     std::unique_ptr<ExprAST> index;
+    int line;
 public:
-    ArrayIndexExprAST(std::unique_ptr<ExprAST> p, std::unique_ptr<ExprAST> index1)
+    ArrayIndexExprAST(std::unique_ptr<ExprAST> p, std::unique_ptr<ExprAST> index1,int line1)
                      : LeftValueAST(ASTType::arrayIndex) {
         pointer = std::move(p);
         index = std::move(index1);
+        line = line1;
     }
     QValue* codegenLeft();
 //     QValue* codegen();
@@ -353,10 +364,12 @@ public:
 // Constant Number
 class NumberExprAST : public ExprAST{
     long long value;
+    int line;
     // IntegerType ty  --> 7384213U64  7384213S64
 public:
-    NumberExprAST(long long val):ExprAST(ASTType::number){
+    NumberExprAST(long long val,int line1):ExprAST(ASTType::number){
         value = val;
+        line = line1;
     }
     long long getValue(){
         return value;
@@ -372,8 +385,11 @@ public:
 
 // NullPointer
 class NullExprAST : public ExprAST{
+    int line;
 public:
-    NullExprAST():ExprAST(ASTType::nullT){}
+    NullExprAST(int line1):ExprAST(ASTType::nullT){
+        line = line1;
+    }
 
     void printAST(int level=0) {
         for(int i=0;i<level;i++){
@@ -389,12 +405,13 @@ class CallExprAST : public ExprAST, public CommandAST
 {
 	std::string functionName;
 	std::vector<std::unique_ptr<ExprAST>> args;
-
+    int line;
 public:
-	CallExprAST(std::string functionName1, std::vector<std::unique_ptr<ExprAST>> args1)
+	CallExprAST(std::string functionName1, std::vector<std::unique_ptr<ExprAST>> args1,int line1)
 		       : ExprAST(ASTType::call), CommandAST(ASTType::call), args(std::move(args1))
     {
         functionName = functionName1;
+        line = line1;
     }
 
     void printAST(int level=0){
@@ -433,11 +450,12 @@ class UnaryExprAST : public ExprAST
 {
 	Operators opCode;					  
 	std::unique_ptr<ExprAST> Operand; 
-
+    int line;
 public:
-	UnaryExprAST(Operators opCode1, std::unique_ptr<ExprAST> Operand1) : ExprAST(ASTType::unary) {
+	UnaryExprAST(Operators opCode1, std::unique_ptr<ExprAST> Operand1, int line1) : ExprAST(ASTType::unary) {
         opCode = opCode1;
         Operand = move(Operand1);
+        line = line1;
     }
 
     QValue* codegen();
@@ -476,12 +494,14 @@ class BinaryExprAST : public ExprAST
 {
 	Operators op;
 	std::unique_ptr<ExprAST> LHS, RHS;
-
+    int line;
 public:
-	BinaryExprAST(Operators OpCode, std::unique_ptr<ExprAST> lhs, std::unique_ptr<ExprAST> rhs) : ExprAST(ASTType::binary){
+	BinaryExprAST(Operators OpCode, std::unique_ptr<ExprAST> lhs, std::unique_ptr<ExprAST> rhs,int line1) 
+                 : ExprAST(ASTType::binary){
         op = OpCode;
         LHS = std::move(lhs);
         RHS = std::move(rhs); 
+        line = line1;
     }
 
     void printAST(int level=0){
@@ -562,12 +582,14 @@ public:
 class NewExprAST : public ExprAST{
     QType* type; 
     std::unique_ptr<ExprAST> size;
+    int line;
 public:
-    NewExprAST(QType* type1, std::unique_ptr<ExprAST> size1) 
+    NewExprAST(QType* type1, std::unique_ptr<ExprAST> size1, int line1) 
               :ExprAST(ASTType::newT)
     {
         type = type1;
         size = std::move(size1);
+        line = line1;
     }
     QType* getType(){
         return type;
@@ -596,7 +618,7 @@ public:
 
 class DefAST : public CommandAST, public StructureAST{
     bool global;
-    public:
+public:
     DefAST(ASTType type,bool g) : CommandAST(type),StructureAST(type){
         global = g;
     }
@@ -607,12 +629,14 @@ class VarDefAST : public DefAST{
     IntType* type;
     std::string name;
     std::unique_ptr<ExprAST> value;
+    int line;
 public:
-    VarDefAST(IntType* type1, std::string n, std::unique_ptr<ExprAST> v, bool global)
+    VarDefAST(IntType* type1, std::string n, std::unique_ptr<ExprAST> v, bool global,int line1)
              :DefAST(ASTType::varDef,global){
         type = type1;
         name = n;
         value = std::move(v);
+        line = line1;
     }
     bool codegenCommand();
     bool codegenStructure();
@@ -645,13 +669,15 @@ class ArrayDefAST : public DefAST{
     PointType* type;
     std::string name;
     std::unique_ptr<ExprAST> value;
+    int line;
 public:
-    ArrayDefAST(PointType* type1, std::string n, std::unique_ptr<ExprAST> v,bool global)
+    ArrayDefAST(PointType* type1, std::string n, std::unique_ptr<ExprAST> v,bool global,int line1)
                :DefAST(ASTType::arrayDef,global)
     {
         type = type1;
         name = n;
         value = std::move(v);
+        line = line1;
     }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -682,10 +708,13 @@ public:
 class AssignAST : public CommandAST{
     std::unique_ptr<LeftValueAST> left;
     std::unique_ptr<ExprAST> right;
-    public:
-    AssignAST(std::unique_ptr<LeftValueAST> l, std::unique_ptr<ExprAST> r):CommandAST(ASTType::assign){
+    int line;
+public:
+    AssignAST(std::unique_ptr<LeftValueAST> l, std::unique_ptr<ExprAST> r, int line1)
+             :CommandAST(ASTType::assign){
         left = std::move(l);
         right = std::move(r);
+        line = line1;
     }
 
     void printAST(int level=0){
@@ -713,13 +742,15 @@ class IfAST : public CommandAST{
     std::unique_ptr<ExprAST> condition;
     std::unique_ptr<CommandAST> thenC;
     std::unique_ptr<CommandAST> elseC;
-    public:
-    IfAST( std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> t, std::unique_ptr<CommandAST> e)
+    int line;
+public:
+    IfAST( std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> t, std::unique_ptr<CommandAST> e, int line1)
               : CommandAST(ASTType::ifT)
     {
         condition = std::move(cond);
         thenC = std::move(t);
         elseC = std::move(e);
+        line = line1;
     }
     bool codegenCommand();
     void printAST(int level=0){
@@ -757,14 +788,16 @@ class ForAST : public CommandAST{
     std::unique_ptr<ExprAST> condition;
     long long step;
     std::unique_ptr<CommandAST> body;
-    public:
-    ForAST(std::unique_ptr<CommandAST> start1,std::unique_ptr<ExprAST> condition1,long long step1,std::unique_ptr<CommandAST> body1)
+    int line;
+public:
+    ForAST(std::unique_ptr<CommandAST> start1,std::unique_ptr<ExprAST> condition1,long long step1,std::unique_ptr<CommandAST> body1, int line1)
           : CommandAST(ASTType::forT)
     {
         start = std::move(start1);
         condition = std::move(condition1);
         step = step1;
         body = std::move(body1);
+        line = line1;
     }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -803,11 +836,13 @@ class ForAST : public CommandAST{
 class WhileAST : public CommandAST{
     std::unique_ptr<ExprAST> condition;
     std::unique_ptr<CommandAST> body;
-    public:
-    WhileAST(std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> cmd)
+    int line;
+public:
+    WhileAST(std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> cmd, int line1)
             : CommandAST(ASTType::whileT){
         condition = std::move(cond);
         body = std::move(cmd);
+        line = line1;
     }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -834,9 +869,11 @@ class WhileAST : public CommandAST{
 ///returnAST
 class ReturnAST : public CommandAST{
     std::unique_ptr<ExprAST> value;
-    public:
-    ReturnAST(std::unique_ptr<ExprAST> v) : CommandAST(ASTType::returnT){
+    int line;
+public:
+    ReturnAST(std::unique_ptr<ExprAST> v, int line1) : CommandAST(ASTType::returnT){
         value = std::move(v);
+        line = line1;
     }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -850,8 +887,11 @@ class ReturnAST : public CommandAST{
 
 ///breakAST
 class BreakAST : public CommandAST{
+    int line;
     public:
-    BreakAST():CommandAST(ASTType::breakT){}
+    BreakAST(int line1):CommandAST(ASTType::breakT){
+        line = line1;
+    }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");
@@ -864,13 +904,16 @@ class BreakAST : public CommandAST{
 ///blockAST
 class BlockAST : public CommandAST{
     std::vector<std::unique_ptr<CommandAST>> cmds;
+    int line;
     public:
-    BlockAST(std::vector<std::unique_ptr<CommandAST>> c):CommandAST(ASTType::body){
+    BlockAST(std::vector<std::unique_ptr<CommandAST>> c,int line1):CommandAST(ASTType::body){
         cmds = std::move(c);
+        line = line1;
     }
-    BlockAST():CommandAST(ASTType::body){
+    BlockAST(int line1):CommandAST(ASTType::body){
         //std::vector<std::unique_ptr<CommandAST>> c;
         //cmds = c;
+        line = line1;
     }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -894,12 +937,14 @@ class PrototypeAST : public StructureAST
 	std::string Name;
 	std::vector<std::pair<std::string,QType*>> Args;
     ReturnType* returnType;
+    int line;
 
 public:
-	PrototypeAST(const std::string &Name1, std::vector<std::pair<std::string,QType*>> Args1, ReturnType* returnType1)
+	PrototypeAST(const std::string &Name1, std::vector<std::pair<std::string,QType*>> Args1, ReturnType* returnType1,int line1)
 		: StructureAST(ASTType::proto),Name(Name1){
         Args = Args1;
         returnType = returnType1;
+        line = line1;
 	}
 
     void printAST(int level=0){
@@ -952,12 +997,14 @@ class FunctionAST : public StructureAST
 {
 	std::unique_ptr<PrototypeAST> Proto;
 	std::unique_ptr<CommandAST> Body; 
+    int line;
 
 public:
-	FunctionAST(std::unique_ptr<PrototypeAST> Proto1, std::unique_ptr<CommandAST> Body1)
+	FunctionAST(std::unique_ptr<PrototypeAST> Proto1, std::unique_ptr<CommandAST> Body1,int line1)
 	           :StructureAST(ASTType::function){
 		Proto = std::move(Proto1);
 		Body = std::move(Body1);
+        line = line1;
 	}
 
     void printAST(int level=0){

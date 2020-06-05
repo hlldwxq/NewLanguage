@@ -147,7 +147,7 @@ private:
 	std::unique_ptr<ReturnAST> ParseReturn();
 	std::unique_ptr<BlockAST> ParseBlock();
 	std::unique_ptr<IfAST> ParseIf();
-	std::unique_ptr<DefAST> ParseVarOrArrDef(bool global);
+	std::unique_ptr<DefAST> ParseVariableDef(bool global);
 	std::unique_ptr<ForAST> ParseFor();
 	std::unique_ptr<WhileAST> ParseWhile();
 	std::unique_ptr<CommandAST> ParseCommand();

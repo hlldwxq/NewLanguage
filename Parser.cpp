@@ -375,9 +375,13 @@ void Parser::Parse(){
         std::unique_ptr<StructureAST> structure = ParseStructure();
         if(structure != nullptr){
             //structure->printAST();
-            structure->codegenStructure();
+            bool success = structure->codegenStructure();
+            if(!success){
+                exit(0);
+            }
         }else{
-            exit(1);
+            exit(0);
         }
     }
+    CallInitFunction();
 }

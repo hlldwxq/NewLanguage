@@ -4,13 +4,13 @@
 
 /// boolExpr ::= true   false
 std::unique_ptr<NumberExprAST> Parser::ParseBoolConstantExpr(){
-    
+    int line1 = lineN;
     if(CurTok != Token::tok_true && CurTok != Token::tok_false)
         Bug("call ParseBoolExpr, except true or false",lineN);
     
     int b = (CurTok == Token::tok_true) ? 1 : 0;
     
-    std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(b);
+    std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(b,line1);
     getNextToken(); // eat the bool
     return num;
 
@@ -18,28 +18,28 @@ std::unique_ptr<NumberExprAST> Parser::ParseBoolConstantExpr(){
 
 /// boolExpr ::= null
 std::unique_ptr<NullExprAST> Parser::ParseNullExpr(){
-
+    int line1 = lineN;
     if(CurTok != Token::tok_null)
         Bug("call ParseNullExpr, except null",lineN);
 
     getNextToken(); //eat null
-    return std::make_unique<NullExprAST>();
+    return std::make_unique<NullExprAST>(line1);
 }
 
 /// numberExpr ::= number
 std::unique_ptr<NumberExprAST> Parser::ParseNumberExpr(){
-	
+	int line1 = lineN;
     if(CurTok != Token::tok_number)
         Bug("call ParseNumberExpr, except constant number",lineN);
 
-    std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(NumVal); 
+    std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(NumVal,line1); 
 	getNextToken();	// eat the number						   
 	return num;
 }
 
 /// callExpr ::= fName(expression1,expression2, ..)
 std::unique_ptr<CallExprAST> Parser::ParseCallExpr(std::string functionName){
-    
+    int line1 = lineN;
     if(CurTok != Token::left_paren)
         Bug("call ParseCallExpr, except ( after the function name",lineN);
 
@@ -65,12 +65,12 @@ std::unique_ptr<CallExprAST> Parser::ParseCallExpr(std::string functionName){
         }
     }
     getNextToken(); //eat )
-    return std::make_unique<CallExprAST>(functionName, std::move(args));
+    return std::make_unique<CallExprAST>(functionName, std::move(args),line1);
 }
 
 /// arrayIndexExpr ::= arrayName[expression1][expression2]
 std::unique_ptr<ArrayIndexExprAST> Parser::ParseArrayIndexExpr(std::unique_ptr<ExprAST> left){
-
+    int line1 = lineN;
     if(CurTok != Token::left_square_bracket)
         Bug("call ParseArrayIndexExpr, except [ after array name",lineN);
 
@@ -91,9 +91,9 @@ std::unique_ptr<ArrayIndexExprAST> Parser::ParseArrayIndexExpr(std::unique_ptr<E
         getNextToken(); //eat ]
 
         if(arrayIndex == nullptr){
-            arrayIndex = std::make_unique<ArrayIndexExprAST>(std::move(left),std::move(index));
+            arrayIndex = std::make_unique<ArrayIndexExprAST>(std::move(left),std::move(index),line1);
         }else{
-            arrayIndex = std::make_unique<ArrayIndexExprAST>(std::move(arrayIndex),std::move(index));
+            arrayIndex = std::make_unique<ArrayIndexExprAST>(std::move(arrayIndex),std::move(index),line1);
         }
 
     }while(CurTok == Token::left_square_bracket);
@@ -107,6 +107,7 @@ std::unique_ptr<ArrayIndexExprAST> Parser::ParseArrayIndexExpr(std::unique_ptr<E
 ///   ::= functionName '(' expression* ')'
 std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr()
 {
+    int line1 = lineN;
 	if(CurTok != Token::tok_identifier)
         Bug("call ParseIdentifierExpr, except an identifier",lineN);
 
@@ -119,18 +120,18 @@ std::unique_ptr<ExprAST> Parser::ParseIdentifierExpr()
 	}
 	else if (CurTok == Token::left_square_bracket)
 	{
-        std::unique_ptr<VarOrPointerAST> pointerName = std::make_unique<VarOrPointerAST>(IdName,true);
+        std::unique_ptr<VariableAST> pointerName = std::make_unique<VariableAST>(IdName,line1,true);
         return ParseArrayIndexExpr(std::move(pointerName));
 	}
 
-    return std::make_unique<VarOrPointerAST>(IdName);
+    return std::make_unique<VariableAST>(IdName,line1);
 }
 
 /// unary
 ///   ::= ! expression
 ///   ::= - expression
 std::unique_ptr<ExprAST> Parser::ParseUnary(){
-
+    int line1 = lineN;
     Token Op = CurTok;
 
     if(Op != Token::exclamation_point && Op != Token::minus){
@@ -156,14 +157,14 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
         // and -8 should be regarded as constant number, no Unary
         long long number = -NumVal;
         getNextToken();  //eat number
-        return std::make_unique<NumberExprAST>(number);
+        return std::make_unique<NumberExprAST>(number,line1);
     }
 
     if(Op == Token::minus || Op == Token::exclamation_point){
         std::unique_ptr<ExprAST> Operand = ParseExpr();
         if(Operand == nullptr)
             return nullptr;  //do not need to give an ErrorQ info again
-        return std::make_unique<UnaryExprAST>(unaryOp, std::move(Operand));
+        return std::make_unique<UnaryExprAST>(unaryOp, std::move(Operand),line1);
     }
 
     return nullptr;
@@ -173,7 +174,7 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
 ///   ::= ('+' unary)*
 std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec, std::unique_ptr<ExprAST> LHS)
 {
-	
+	int line1 = lineN;
 	while (true)
 	{
 		int TokPrec = GetTokPrecedence();
@@ -250,12 +251,13 @@ std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec, std::unique_ptr<Exp
 		}
 
 		// Merge LHS/RHS.
-		LHS = std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS));
+		LHS = std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS),line1);
 	}
 }
 
 /// newExpr ::= new type name[expr]
 std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
+    int line1 = lineN;
     if(CurTok != Token::tok_new){
         ErrorQ("except new", lineN);
         return nullptr;
@@ -289,7 +291,7 @@ std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
     }
     getNextToken(); //eat ]
 
-    return std::make_unique<NewExprAST>(type,std::move(index));
+    return std::make_unique<NewExprAST>(type,std::move(index),line1);
 }
 
 /// paren
@@ -318,7 +320,7 @@ std::unique_ptr<ExprAST> Parser::ParseParen(){
 ///      ::= ! - 
 ///      ::= Expr binop Expr
 std::unique_ptr<ExprAST> Parser::ParseExpr(){
-    
+
     std::unique_ptr<ExprAST> Expr;
     switch(CurTok){
     case Token::tok_number:

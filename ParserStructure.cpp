@@ -2,6 +2,8 @@
 
 /// prototype::=def type functionName( arg* , ) ;
 std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
+    int line1 = lineN;
+    
     if(CurTok != Token::tok_def){
         ErrorQ("except def",lineN);
         return nullptr;
@@ -75,7 +77,7 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
 
     }
     getNextToken(); //eat )
-    std::unique_ptr<PrototypeAST> proto = std::make_unique<PrototypeAST>(FnName,args,returnType);
+    std::unique_ptr<PrototypeAST> proto = std::make_unique<PrototypeAST>(FnName,args,returnType,line1);
     
     if(CurTok == Token::semicolon){
         getNextToken();
@@ -90,7 +92,7 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
         return nullptr;
     }
 
-    std::unique_ptr<FunctionAST> f = std::make_unique<FunctionAST>(std::move(proto),std::move(body));
+    std::unique_ptr<FunctionAST> f = std::make_unique<FunctionAST>(std::move(proto),std::move(body),line1);
     return std::move(f);
 }
 
@@ -99,7 +101,7 @@ std::unique_ptr<StructureAST> Parser::ParseStructure(){
         return ParseProtoOrFunction();
     
     }else if(isType()){
-        return ParseVarOrArrDef(true);
+        return ParseVariableDef(true);
     }
     ErrorQ("unexpected word",lineN);
     return nullptr;
