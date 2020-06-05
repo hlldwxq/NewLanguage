@@ -1,3 +1,26 @@
+/*
+  TODO: (Meeting June 5)
+
+
+  * Operator class
+
+  * align-operations (upcast, etc) on QValue
+
+  * QValue align_both(QValue,QValue) - to be used in binary operator
+
+  * QValue align_right(QValue,QType) - to be used in assign, return, parameter
+
+    uses QValue upcast(QValue)
+
+  1. This refactoring
+  2. Tests. And script that builds and runs them EASILY. E.g. "make test"
+
+
+
+ */
+
+
+
 #include "AST.h"
 #include "Scope.h"
 #include <assert.h>
@@ -263,6 +286,149 @@ QValue* UnaryExprAST::codegen(){
     return NULL;
 }
 
+
+/*
+
+  sint8 a;
+
+  a            + 128
+
+  sint8        + sint16
+
+  -->
+
+  (sint16)a + 128 -> sint16
+
+
+  128.signed_type  -> 16
+  128.unsigned_type -> 8
+
+  a + 128  -> max (a.type,128.type)
+
+
+  127::?? + 127::?? -> 254::??
+
+  127::?? + 127::?? + a::sint8
+  254::sint16 + a::sint8
+
+
+
+  a::sint8 + b::uint8 --> sint16
+
+
+
+
+
+  ((sint16)a::sint8 + (128::sint16 + (sint16)b::sint8))::sint16 + (sint16)10::sint8
+
+
+
+  128 & 129
+
+
+  a + b
+
+  if a.isnum && b.isnum then
+    // Constant-propagation
+    both_num=true
+    // constant-propagation
+  else {
+    // Adjust sign
+    if a.signed != b.signed
+      if a.isnum then a = adjust_sign(a,b.signed)
+      else if b.isnum then b = adjust_sign(b,a.signed)
+      else error("sign mismatch")
+
+    // No special cases for constants from this point on
+    // Adjust width
+    if (a.width < b.width) upcast(a,b.width) // Yields QValue!
+    else if (a.width > b.width) upcast(b,b.width)
+  }
+
+  // Generate code for operator OR do constant propagation (based on both_num)
+
+
+  class BinaryAST {
+    Operator op;  // just a name
+
+    codegen() {
+      if both constants
+        op.compute_const(a,b)
+        find_suitable_type for result
+      else
+        align
+        op.codegen(a,b)
+
+    }
+
+  }
+
+  class Operator {
+    virtual QValue codegen(QValue a, QValue b) = 0; // Assumes: a.type==b.type
+    virtual long long compute_const(long long a, long long b) = 0;
+
+  }
+
+  // <, <=, >, >=, ==, !=
+  class CompareOperator : Operator {
+
+    virtual Value gen_llvm(bool, Value, Value) = 0;
+
+    virtual QValue codegen(QValue a, QValue b) {
+      llvm_result = gen_llvm(a.signed,a.value,b.value)
+      return QValue(llvm_result,QType::bool)
+    }
+
+  }
+
+  // +, -, *, div, mod, &, |
+  class ArithOperator : Operator {
+    virtual Value gen_llvm(bool, Value, Value) = 0;
+
+    virtual QValue codegen(QValue a, QValue b) {
+      llvm_result = gen_llvm(a.signed,a.value,b.value)
+      return QValue(llvm_result,a.type)
+    }
+
+  }
+
+  Less_Than_Operator::gen_llvm(signed,a,b) {
+    if signed then llvm::gen_SLT(a,b) else llvm::gen_ULT(a,b)
+  }
+
+  long long Less_Than_Operator::compute_const(long long a,long long b) {
+    return a<b ? 1 : 0
+  }
+
+  PlusOperator::codegen(signed, a,b) {
+    return llvm_gen_plus(a,b)
+  }
+
+  long long PlusOperator::compute_const(long long a, long long b) {
+    return a+b;
+  }
+
+
+
+
+
+
+
+  adjust_sign(a,signed)
+    if (!signed && a.num<0) error();
+    return Const(a.num,signed,suitable_type(a.num,signed))
+
+
+  if a.signed != b.signed then
+    if a.isnum then a = adjust_sign(a,b.signed)
+    else if b.isnum then b = adjust_sign(b,a.signed)
+    else error("sign mismatch")
+
+
+
+*/
+
+
 QValue* BinaryExprAST::codegen(){
     
     llvm::Value* result;
@@ -377,6 +543,14 @@ QValue* BinaryExprAST::codegen(){
         }
     }
 
+    /*
+     < less than      LT
+     > greater than   GT
+     <= less equal    LE
+     >= greater equal GE
+
+    */
+
     switch(op){   
         case Operators::equal_sign:  //==
             result = Builder.CreateICmpEQ(leftV, rightV, "cmptmp");
@@ -387,11 +561,19 @@ QValue* BinaryExprAST::codegen(){
             resultType = new IntType(false,1);
             break;
         case Operators::less_equal:  //<=
-            result = Builder.CreateICmpULE(leftV, rightV, "cmptmp");
+            result = Builder.CreateICmpULE(leftV, rightV, "cmptmp"); // FIXME: Use SLE if signed!
             resultType = new IntType(false,1);
             break;
-        case Operators::more_equal:  //>=
-            result = Builder.CreateICmpUGE(leftV, rightV, "cmptmp");
+        case Operators::more_equal:  //>= // This is called "greater_equal"
+            result = Builder.CreateICmpUGE(leftV, rightV, "cmptmp"); // FIXME: Use SGE if signed!
+            resultType = new IntType(false,1);
+            break;
+        case Operators::more_sign:   // >
+            result = Builder.CreateICmpUGT(leftV, rightV, "cmptmp"); // FIXME: Use SGT if signed!
+            resultType = new IntType(false,1);
+            break;
+        case Operators::less_sign:   // < // less than
+            result = Builder.CreateICmpULT(leftV, rightV, "cmptmp"); // FIXME: Use SLT if signed!
             resultType = new IntType(false,1);
             break;
         case Operators::plus_sign:   // +
@@ -431,19 +613,13 @@ QValue* BinaryExprAST::codegen(){
             }
             break;
         case Operators::andT:        // &
+            // TODO: check left and right are Boolean!
             result = Builder.CreateAnd(leftV,rightV,"andmp");
             resultType = new IntType(false,1);
             break;
         case Operators::orT:         // |
+            // TODO: check left and right are Boolean!
             result = Builder.CreateOr(leftV,rightV,"ormp");
-            resultType = new IntType(false,1);
-            break;
-        case Operators::more_sign:   // >
-            result = Builder.CreateICmpUGT(leftV, rightV, "cmptmp");
-            resultType = new IntType(false,1);
-            break;
-        case Operators::less_sign:   // <
-            result = Builder.CreateICmpULT(leftV, rightV, "cmptmp");
             resultType = new IntType(false,1);
             break;
         default:
@@ -460,18 +636,19 @@ QValue* BinaryExprAST::codegen(){
 
 QValue* NewExprAST::codegen(){
 
-    Type* t = Type::getIntNTy(TheContext,sizeof(size_t)*8);
+    Type* t = Type::getIntNTy(TheContext,sizeof(size_t)*8);  // FIXME: Should use size-type of TARGET PLATFORM, not platform compiler is running on
     Value* arraySize = (size->codegen())->getValue();
         
     Value* mallocSize = ConstantExpr::getSizeOf(type->getLLVMType());
-    mallocSize = ConstantExpr::getTruncOrBitCast(cast<Constant>(mallocSize),t);
+    mallocSize = ConstantExpr::getTruncOrBitCast(cast<Constant>(mallocSize),t); // TODO: Downcast may overflow. Check!
 
     // out of memory ???
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t, type->getLLVMType(), mallocSize,arraySize,nullptr,"");
+    // TODO: Check if createMalloc can overflow computation! e.g. size = 2^31, type = i128 on 32-bit arch
     Value* result = Builder.Insert(var_malloc);
     
    // type->printAST();
-    return new QValue(type,result);
+    return new QValue(type,result); // FIXME Type is pointerType(type)
 }
 
 bool VarDefAST::codegenCommand(){
@@ -578,6 +755,11 @@ bool AssignAST::codegenCommand(){
     if(!leftT->getIsPointer()){
         IntType* leftInt = dynamic_cast<IntType*>(leftT);
         IntType* rightInt;
+
+
+        // rightV = align_right(rightV,leftInt)
+
+        // TODO Try to use same code as for alignment of binary operator! This is somehow a one-sided version of operator alignment
         if(right->getType()!=ASTType::number){
             rightInt = dynamic_cast<IntType*>(rightT);
             if(leftInt->getSigned() != rightInt->getSigned()){

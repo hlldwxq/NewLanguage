@@ -1,7 +1,8 @@
 C_SOURCES = $(shell find . -name "*.cpp")
 C_OBJECTS = $(patsubst %.cpp, %.o, $(C_SOURCES))
 
-C_FLAGS = -Wall `llvm-config-10 --cxxflags --ldflags --system-libs --libs core mcjit native orcjit` 
+C_FLAGS = -Wall `llvm-config-10 --cxxflags --ldflags --system-libs --libs core mcjit native orcjit`
+# TODO add -Wextra for your own files only, if possible?
 
 
 start: $(C_OBJECTS)
