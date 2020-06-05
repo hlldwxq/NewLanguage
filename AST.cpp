@@ -96,15 +96,16 @@ llvm::Constant* alignConst(long long value, QType* type){
     long long minRange;
     long long initSize = intT->getWidth();
     if(intT->getSigned()){
-        maxRange = (1<<(initSize-1))-1;
+        maxRange = (2<<(initSize-2))-1;
         minRange = -(2<<(initSize-2));
     }else{
-        maxRange = (1<<initSize)-1;
-        minRange = 0;
+        maxRange = (2<<(initSize-1))-1;  // Notice the range of Numbers on the computer
+        minRange = 0; 
     }
 
-    if(value<minRange || value>maxRange)
+    if(value<minRange || value>maxRange){
         return NULL;
+    }
 
     return ConstantInt::get(intT->getLLVMType(),value);
 }
@@ -212,6 +213,8 @@ QValue* LeftValueAST::codegen() {
 
 QValue* NumberExprAST::codegen(){
     IntType* qtype = getSuitableType(value); 
+    // in some cases, like array index, as long as the number is not negtive, 
+    // its type is not important
     llvm::Value* constInt = ConstantInt::get(qtype->getLLVMType(),value);
     return new QValue(qtype,constInt);
 }
@@ -267,16 +270,15 @@ QValue* BinaryExprAST::codegen(){
     bool bothNum = false; // for both num
     long long lnum;
     long long rnum;
-    long long resultNum;
+    long long resultNum;  // make sure that the type of result is correct; 127 + 127 -> sint16
 
     QValue* leftQV = LHS->codegen();
     QValue* rightQV = RHS->codegen();
 
     QType* leftT = leftQV->getType();
     QType* rightT = rightQV->getType();
-    QType* resultType = leftT;
+    QType* resultType = leftT; //the resulttype may be changed
 
-    // TODO "ptr1 - ptr2" only makes sense if you also have "ptr1 + intN". Maybe do not support minus for ptrs!
     if((leftT!=NULL&&leftT->getIsPointer()) || (rightT!=NULL&&rightT->getIsPointer())){
         ErrorQ("Variables on either side of a binary operator cannot be Pointers",line);
         return NULL;
@@ -288,7 +290,10 @@ QValue* BinaryExprAST::codegen(){
     if(LHS->getType() == ASTType::number && RHS->getType()!=ASTType::number){
         std::unique_ptr<NumberExprAST> num = getNumberAST(std::move(LHS));
 
-        //leftV = alignConst(num->getValue(),rightT);
+        /* 
+           sint8 var = 12
+           sint16 var1 = 190[sint16] + var
+        */
         QType* resType = getBiggerIntType(leftT,rightT,num->getValue());
         if(!resType){
             ErrorQ("A number on one side of a binary operator cannot be converted to the type of a variable on the other side",line);
@@ -297,6 +302,9 @@ QValue* BinaryExprAST::codegen(){
         if(resType == leftT){
             IntType* oldType = dynamic_cast<IntType*>(rightT);
             rightV = Builder.CreateIntCast(rightV,resType->getLLVMType(),oldType->getSigned());
+            
+            // if the var is unsinged, the number type and result type also should be unsigned
+            // so we cannot easily make the     result type = leftT
             if(!oldType->getSigned()){
                 leftT = new IntType(oldType->getSigned(),(dynamic_cast<IntType*>(leftT))->getWidth());
             }
@@ -311,14 +319,6 @@ QValue* BinaryExprAST::codegen(){
         
     }else if(LHS->getType() != ASTType::number && RHS->getType()==ASTType::number){
 
-        /*std::unique_ptr<NumberExprAST> num = getNumberAST(std::move(RHS));
-        rightV = alignConst(num->getValue(),leftT);
-        if(!rightV){
-            ErrorQ("A number on one side of a binary operator cannot be converted to the type of a variable on the other side",line);
-            return NULL;
-        }
-        rightT = leftT;
-        resultType = leftT;*/
         std::unique_ptr<NumberExprAST> num = getNumberAST(std::move(RHS));
         QType* resType = getBiggerIntType(leftT,rightT,num->getValue());
         if(!resType){
@@ -339,34 +339,15 @@ QValue* BinaryExprAST::codegen(){
             resultType = leftT;
         }
     }else if(LHS->getType() == ASTType::number && RHS->getType()==ASTType::number){
-        /*NumberExprAST* leftnum = dynamic_cast<NumberExprAST*>(LHS.get());
-        std::unique_ptr<NumberExprAST> ptrL;
-        if (leftnum != nullptr) {
-            LHS.release();
-            ptrL.reset(leftnum);
-        }
-
-        NumberExprAST* rightnum = dynamic_cast<NumberExprAST*>(RHS.get());
-        std::unique_ptr<NumberExprAST> ptrR;
-        if (rightnum != nullptr) {
-            RHS.release();
-            ptrR.reset(rightnum);
-        }*/
+        // just need to record the value, donot need to convert the type
         std::unique_ptr<NumberExprAST> ptrL = getNumberAST(std::move(LHS));
         std::unique_ptr<NumberExprAST> ptrR = getNumberAST(std::move(RHS));
 
-        long long maxInt = ptrL->getValue()>ptrR->getValue()?ptrL->getValue():ptrR->getValue();
-        IntType* type = getSuitableType(maxInt);
-        
-        leftV = ConstantInt::get(type->getLLVMType(),ptrL->getValue());
-        rightV = ConstantInt::get(type->getLLVMType(),ptrR->getValue());
-        
         bothNum = true;
         
         lnum = ptrL->getValue();
-        leftT = type;
         rnum = ptrR->getValue();
-        rightT = type;
+
     }
 
     IntType* leftInt = dynamic_cast<IntType*>(leftT);
@@ -392,6 +373,7 @@ QValue* BinaryExprAST::codegen(){
             rightV = rightQV->getValue();
             leftV = Builder.CreateIntCast(leftQV->getValue(),rightInt->getLLVMType(),isSigned);
             resultType = rightT;
+
         }
     }
 
@@ -529,12 +511,6 @@ bool VarDefAST::codegenCommand(){
             initValue = Builder.CreateIntCast(initValue,type->getLLVMType(),isSigned);
         }
     }else{
-        /*NumberExprAST* num = dynamic_cast<NumberExprAST*>(value.get());
-        std::unique_ptr<NumberExprAST> ptrL;
-        if (num != nullptr) {
-            value.release();
-            ptrL.reset(num);
-        }*/
         std::unique_ptr<NumberExprAST> ptrL = getNumberAST(std::move(value));
         initValue = alignConst(ptrL->getValue(),type);
         if(!initValue){
