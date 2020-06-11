@@ -1,7 +1,7 @@
 #include "Parser.h"
 
 int main(){
-    std::string fileName = "file.k";
+    std::string fileName = "invalidCode.q";
 	std::ifstream in(fileName);
     std::ostringstream tmp;
     tmp << in.rdbuf();

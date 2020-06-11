@@ -6,15 +6,22 @@ C_FLAGS = -Wall `llvm-config-10 --cxxflags --ldflags --system-libs --libs core m
 
 
 start: $(C_OBJECTS)
-	clang++-10 -g $(C_OBJECTS) $(C_FLAGS) -o Parser
+	clang++-10 -g $(C_OBJECTS) $(C_FLAGS) -o llvmir
 .cpp.o:
 	@echo Compiling cpp source code files $< ...
 	clang++-10 -g -c $< $(C_FLAGS) -o $@
 
-file.ll: Parser file.ll
-	./Parser > file.ll 2>&1 || echo "Ignoring Parser failure"
-	sed -i '/^Segmentation fault/d' file.ll
 
-interface_file: interface_file.c file.ll
-	llvm-as-10 -disable-output file.ll  # Just a well-formedness check, as clang tends to simply segfault on malformed llvm code
-	clang-10 -Wall -Wextra -g -o interface_file interface_file.c file.ll
+validTest: llvmir validCodeTest.c
+	./llvmir > llvmir.ll 2>&1 || echo "Ignoring Parser failure"
+	sed -i '/^Segmentation fault/d' llvmir.ll
+	
+	llvm-as-10 -disable-output llvmir.ll 
+	
+	clang-10 -Wall -Wextra -g -o validCodeTest validCodeTest.c llvmir.ll
+	
+	./validCodeTest
+
+
+invalidTest: llvmir
+	./llvmir 

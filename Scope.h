@@ -5,60 +5,7 @@
 
 extern void ErrorQ(const char* info, int lineN);
 
-class QAlloca{
-    QType* qtype;
-    llvm::AllocaInst* allocaI;
-public:
-    QAlloca(QType* qt,llvm::AllocaInst* a){
-        qtype = qt;
-        allocaI = a;
-    }
-    QType* getType() const{
-        return qtype;
-    }
-    llvm::AllocaInst* getAlloca() const{
-        return allocaI;
-    }
-};
 
-class QFunction{
-    ReturnType* returnType;
-    std::vector<QType*> argsType;
-    Function* function;
-public:
-    QFunction(ReturnType* returnT, std::vector<QType*> argsT, Function* func){
-        returnType = returnT;
-        argsType = argsT;
-        function = func;
-    }
-    ReturnType* getReturnType() const{
-        return returnType;
-    }
-    std::vector<QType*> getArgsType() const{
-        return argsType;
-    }
-    Function* getFunction() const{
-        return function;
-    }
-};
-
-class QGlobalVariable{
-    QType* type;
-    GlobalVariable* globalVar;
-public:
-    QGlobalVariable(QType* type1, GlobalVariable* globalVar1){
-        type = type1;
-        globalVar = globalVar1;
-    }
-
-    QType* getType() const{
-        return type;
-    }
-
-    GlobalVariable* getGlobalVariable() const{
-        return globalVar;
-    }
-};
 
 template <class T, class T1, class T2>
 class Scope{

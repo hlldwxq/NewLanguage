@@ -138,13 +138,13 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
         Bug("call ParseUnary, but unvalid unary symbol",lineN);        
     }
     
-    Operators unaryOp;
+    UOperator* unaryOp;
     switch(Op){
         case Token::exclamation_point:
-            unaryOp = Operators::exclamation_point;
+            unaryOp = new exclamation();
             break;
         case Token::minus:
-            unaryOp = Operators::minus;
+            unaryOp = new negative();
             break;
         default:
             ErrorQ("unvalid unary operator",lineN);
@@ -172,61 +172,49 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
 
 /// binoprhs
 ///   ::= ('+' unary)*
-std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec, std::unique_ptr<ExprAST> LHS)
+std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int TokPrec, std::unique_ptr<ExprAST> LHS)
 {
 	int line1 = lineN;
-	while (true)
-	{
-		int TokPrec = GetTokPrecedence();
-        // more check,if sumbol is valid
-        //unvalid symbol does not mean error
-
-		if (TokPrec < ExprPrec)
-			return LHS;
-        // in normal case, next TokPrec is bigger than or equals to the current prec
-        // if TokPrec< ExprPrec, it means that there is no more BinOp
-
-		Token Op = CurTok;
-        Operators BinOp;
-        switch(Op){
+    std::unique_ptr<ExprAST> RHS;
+    BOperator* BinOp;
+	while(GetTokPrecedence()>0){
+        TokPrec = GetTokPrecedence();
+        switch( CurTok ){
             case Token::equal_sign:
-                BinOp = Operators::equal_sign;
+                BinOp = new equal_sign();
                 break;  //==
             case Token::not_equal:   //!=
-                BinOp = Operators::not_equal;
+                BinOp = new not_equal();
                 break;
-            case Token::less_equal:  //<=
-                BinOp = Operators::less_equal;
+            case Token::less_equal:   //<=
+                BinOp = new less_equal();
                 break;
-            case Token::more_equal:
-                BinOp = Operators::more_equal;
-                break;  //>=
-            case Token::plus_sign:   //+
-                BinOp = Operators::plus_sign;
+            case Token::greater_equal:   //>=
+                BinOp = new greater_equal();
+                break;  
+            case Token::plus:   //+
+                BinOp = new plus();
                 break;
             case Token::minus:       //-
-                BinOp = Operators::minus;
+                BinOp = new minus();
                 break;
             case Token::star:        //*
-                BinOp = Operators::star;
+                BinOp = new star();
                 break;
             case Token::disvision:   // /
-                BinOp = Operators::division;
+                BinOp = new division();
                 break;
-            case Token::andT:                 // &
-                BinOp = Operators::andT;
+            case Token::andT:        // &
+                BinOp = new andT();
                 break;
-            case Token::orT:                   // |
-                BinOp = Operators::orT;
+            case Token::orT:         // |
+                BinOp = new orT();
                 break;
-            case Token::more_sign:            // >
-                BinOp = Operators::more_sign;
+            case Token::greater_than:   // >
+                BinOp = new greater_than();
                 break;
-            case Token::less_sign:            // <
-                BinOp = Operators::less_sign;
-                break;
-            case Token::assignment:           // =
-                BinOp = Operators::assignment;
+            case Token::less_than:    // <
+                BinOp = new less_than();
                 break;
             default:
                 ErrorQ("unvalid symbol for binary operator",lineN);
@@ -235,24 +223,24 @@ std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int ExprPrec, std::unique_ptr<Exp
 		getNextToken(); // eat binop
 
 		// Parse the right expression after the binary operator.
-		std::unique_ptr<ExprAST> RHS = ParseExpr();
+		RHS = ParseBinaryExpr();
 		if (RHS == nullptr)
 			return nullptr;
 
 		// If BinOp binds less tightly with RHS than the operator after RHS, let
 		// the pending operator take RHS as its LHS.
 		int NextPrec = GetTokPrecedence();
-		//printint(NextPrec);
+		
 		if (TokPrec < NextPrec)
 		{
-			RHS = ParseBinOpRHS(TokPrec + 1, std::move(RHS));
+			RHS = ParseBinOpRHS(NextPrec, std::move(RHS));
 			if (!RHS)
 				return nullptr;
-		}
-
-		// Merge LHS/RHS.
-		LHS = std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS),line1);
+		}else if( NextPrec > 0){
+            LHS = std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS),line1);
+        }
 	}
+    return std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS),line1);
 }
 
 /// newExpr ::= new type name[expr]
@@ -269,11 +257,13 @@ std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
         return nullptr;
     }
     
-    auto type = ParseType();
-    if(!type){
+    auto eletype = ParseType();
+    if(!eletype){
         ErrorQ("except an type for new",lineN);
         return nullptr;
     }
+    
+    PointType* type = new PointType(eletype);
     
     if(CurTok!=Token::left_square_bracket){
         ErrorQ("unenough [, except [",lineN);
@@ -313,14 +303,7 @@ std::unique_ptr<ExprAST> Parser::ParseParen(){
     return Expr;
 }
 
-/// Expr ::= number
-///      ::= true false
-///      ::= null
-///      ::= identifier ...  //variableName, array index, function call
-///      ::= ! - 
-///      ::= Expr binop Expr
-std::unique_ptr<ExprAST> Parser::ParseExpr(){
-
+std::unique_ptr<ExprAST> Parser::ParseBinaryExpr(){
     std::unique_ptr<ExprAST> Expr;
     switch(CurTok){
     case Token::tok_number:
@@ -354,14 +337,25 @@ std::unique_ptr<ExprAST> Parser::ParseExpr(){
         ErrorQ("unexpected word for an expression",lineN);
         return nullptr;
     }
-
-    // so long if, better method?
-    if(CurTok==Token::plus_sign||CurTok==Token::minus||CurTok==Token::star||CurTok==Token::disvision||CurTok==Token::andT||CurTok==Token::orT||CurTok==Token::assignment||(static_cast<int>(CurTok)>=static_cast<int>(Token::equal_sign) && static_cast<int>(CurTok)<= static_cast<int>(Token::less_sign))){
-        Expr = ParseBinOpRHS(0,std::move(Expr));
-    }
     if(CurTok == Token::left_square_bracket){
         Expr = ParseArrayIndexExpr(std::move(Expr));
     }
+    return Expr;
+}
+/// Expr ::= number
+///      ::= true false
+///      ::= null
+///      ::= identifier ...  //variableName, array index, function call
+///      ::= ! - 
+///      ::= Expr binop Expr
+std::unique_ptr<ExprAST> Parser::ParseExpr(){
+
+    std::unique_ptr<ExprAST> Expr = Parser::ParseBinaryExpr();
+    // so long if, better method?
+    if(CurTok==Token::plus||CurTok==Token::minus||CurTok==Token::star||CurTok==Token::disvision||CurTok==Token::andT||CurTok==Token::orT||CurTok==Token::assignment||(static_cast<int>(CurTok)>=static_cast<int>(Token::equal_sign) && static_cast<int>(CurTok)<= static_cast<int>(Token::less_than))){
+        Expr = ParseBinOpRHS(GetTokPrecedence(),std::move(Expr));
+    }
+    
     return Expr;
 }
 

@@ -21,7 +21,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <utility>
-#include <utility>
 #include <vector>
 #include <map>
 #include <string>
@@ -33,6 +32,8 @@ static LLVMContext TheContext;
 static IRBuilder<> Builder(TheContext);
 void CallInitFunction();
 extern void Bug(const char * info,int lineN);
+extern void ErrorQ(const char* info, int lineN);
+extern void ErrorD(const char* info, int lineN);
 
 enum class ASTType{
 	var_or_pointer,
@@ -63,24 +64,17 @@ enum class Operators{
 	equal_sign,  //==
 	not_equal,   //!=
 	less_equal,  //<=
-	more_equal,  //>=
-	plus_sign,   //+
+	greater_equal,  //>=
+	greater_than,   // >
+	less_than,   // <
+	plus,   //+
 	minus,       //-
 	star,        //*
-	division,   // /
-	left_paren,  // (
-	right_paren, // )
-	left_square_bracket,  // [
-	right_square_bracket, // ]
-	left_brace,           // {
-	right_brace,          // }
-	comma,                // ,
+	division,    // /
 	exclamation_point,    // !
-	andT,                  // &
-	orT,                   // |
-	more_sign,            // >
-	less_sign,            // <
-	assignment,           // =
+	andT,                 // &
+	orT                   // |
+
 };
 
 // type class
@@ -91,15 +85,11 @@ public:
         isPointer = isP;
     }
     virtual ~QType(){}
-    bool getIsPointer() const{
-        return isPointer;
-    }
-    virtual llvm::Type* getLLVMType() const = 0; //{return NULL;};
-    virtual void printAST() const = 0; //{}
-    virtual const QType* getElementType() const= 0; //{ return NULL; }
-
+    virtual bool getIsPointer() const = 0;
+    virtual llvm::Type* getLLVMType() const = 0; 
+    virtual void printAST() const = 0; 
+    virtual bool isConstant() const = 0;
     virtual bool compare(QType const* ty) const = 0;
-
 };
 
 class ReturnType{
@@ -110,8 +100,9 @@ protected:
 public:
     ReturnType(QType* q){
         qType = q;
+        isVoid = false;
     }
-    ReturnType(bool isV = true){
+    ReturnType(bool isV=false){
         isVoid = isV;
     }
     virtual ~ReturnType(){}
@@ -137,32 +128,9 @@ public:
 };
 
 class IntType : public QType{
+private:
     bool isSigned;
     unsigned long long width;
-public:
-    IntType(bool s,unsigned long long w):QType(false){
-        isSigned = s;
-        width = w;
-        check_valid();
-    }
-    bool getSigned() const{
-        return isSigned;
-    }
-    unsigned long long getWidth() const{
-        return width;
-    }
-    void printAST() const{
-        if(isSigned){
-            printf("signed ");
-        }else{
-            printf("unsigned ");
-        }
-
-        printf("int%lld",width);
-    }
-    llvm::Type* getLLVMType() const;
-    const QType* getElementType() const{ return NULL; }
-
     void check_valid() const {
       switch(width){
         case 1:
@@ -177,7 +145,34 @@ public:
             exit(1);
       }
     }
+public:
+    IntType(bool s,unsigned long long w):QType(false){
+        isSigned = s;
+        width = w;
+        check_valid();
+    }
+    bool getSigned() const{
+        return isSigned;
+    }
+    unsigned long long getWidth() const{
+        return width;
+    }
+    bool isConstant() const{
+        return false;
+    }
+    bool getIsPointer() const{
+        return false;
+    }
+    void printAST() const{
+        if(isSigned){
+            printf("signed ");
+        }else{
+            printf("unsigned ");
+        }
 
+        printf("int%lld",width);
+    }
+    llvm::Type* getLLVMType() const;
 
     virtual bool compare(QType const* ty) const {
       if (ty->getIsPointer()) return false;
@@ -185,16 +180,16 @@ public:
       return getSigned()==ity->getSigned() && getWidth()==ity->getWidth();
     }
 
-
-
 };
 
 class PointType : public QType{
     QType* elementType;
+    bool isnull;
 public:
 
-    PointType(QType* elementType1) : QType(true){
+    PointType(QType* elementType1,bool isn = false) : QType(true){
         elementType = elementType1;
+        isnull = isn;
     }
     QType* getElementType() const{
         return elementType;
@@ -212,9 +207,105 @@ public:
       return getElementType()->compare(pty->getElementType());
     }
 
+    bool isNull() const{
+        return isnull;
+    }
+
+    bool isConstant() const{
+        return false;
+    }
+    bool getIsPointer() const{
+        return true;
+    }
 };
 
-bool ComparePointType(PointType* p1,PointType* p2);
+//The reason why I need the type is becasue,like in the cast:
+//uint8 u2 = 9     uint8 u1 = 3 + 8 - u2
+//if there is no constantNumber, type of 3+8 will be sint8
+//but for minusAST, the ASTType of left operand is BinaryAST, instead of NumberAST
+//so it believes that singed cannot plus unsigned 
+class ConstantType : public QType{
+private:
+    long long value;
+public:
+    ConstantType(long long v):QType(false){
+        value = v;
+    }
+    long long getValue() const{
+        return value;
+    }
+    bool isConstant() const{
+        return true;
+    }
+    bool getIsPointer() const{
+        return false;
+    }
+    llvm::Type* getLLVMType() const;
+    void printAST() const{}
+    bool compare(QType const* ty) const{
+        if(!ty->isConstant())
+            return false;
+        ConstantType const* ct = dynamic_cast<ConstantType const*>(ty);
+        if(ct->getValue()==value)
+            return true;
+        return false;
+    }
+};
+
+class QAlloca{
+    QType* qtype;
+    llvm::Value* allocaI;
+public:
+    QAlloca(QType* qt,llvm::Value* a){
+        qtype = qt;
+        allocaI = a;
+    }
+    QType* getType() const{
+        return qtype;
+    }
+    llvm::Value* getAlloca() const{
+        return allocaI;
+    }
+};
+
+class QFunction{
+    ReturnType* returnType;
+    std::vector<QType*> argsType;
+    Function* function;
+public:
+    QFunction(ReturnType* returnT, std::vector<QType*> argsT, Function* func){
+        returnType = returnT;
+        argsType = argsT;
+        function = func;
+    }
+    ReturnType* getReturnType() const{
+        return returnType;
+    }
+    std::vector<QType*> getArgsType() const{
+        return argsType;
+    }
+    Function* getFunction() const{
+        return function;
+    }
+};
+
+class QGlobalVariable{
+    QType* type;
+    GlobalVariable* globalVar;
+public:
+    QGlobalVariable(QType* type1, GlobalVariable* globalVar1){
+        type = type1;
+        globalVar = globalVar1;
+    }
+
+    QType* getType() const{
+        return type;
+    }
+
+    GlobalVariable* getGlobalVariable() const{
+        return globalVar;
+    }
+};
 
 //Value
 class QValue{
@@ -231,8 +322,258 @@ public:
     llvm::Value* getValue() const{
         return value;
     }
+    
 };
 
+class UOperator{
+    public:
+    virtual QValue* codegen(QValue* operand) = 0;
+    virtual void printAST() = 0;
+};
+
+class exclamation : public UOperator{
+    public:
+    QValue* codegen(QValue* operand){
+        QType* type = operand->getType();
+        if(type->getIsPointer()){
+            return NULL;
+        }    
+
+        IntType* intType = dynamic_cast<IntType*>(type);
+        if(intType->getSigned()!=false || intType->getWidth()!=1){
+            return NULL;
+        }
+
+        llvm::Value* realValue = Builder.CreateNot(operand->getValue());
+        return new QValue(type,realValue);
+    }
+    void printAST(){
+        printf("-");
+    }
+};
+
+class negative : public UOperator{
+    public:
+    QValue* codegen(QValue* operand){
+        QType* type = operand->getType();
+        if(type->getIsPointer()){
+            return NULL;
+        }
+
+        IntType* intType = dynamic_cast<IntType*>(type);
+        if(intType->getSigned()!=true){
+            return NULL;
+        }
+
+        llvm::Value* minu = Builder.CreateNeg(operand->getValue());
+        return new QValue(type,minu);
+    }
+    void printAST(){
+        printf("!");
+    }
+};
+
+class BOperator{
+    protected:
+    Operators opType;
+    public:
+    virtual Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right) = 0;
+    virtual QValue* codegen(QValue* a, QValue* b) = 0;
+    virtual QValue* constantCodegen(long long left, long long right) = 0;
+    virtual void printAST() = 0;
+    virtual Operators getOpType(){
+        return opType;
+    }
+    BOperator(Operators op){
+        opType = op;
+    }
+};
+
+class CompareOperator : public BOperator{
+    public:
+    virtual QValue* codegen(QValue* a, QValue* b) {
+        IntType* getSign = dynamic_cast<IntType*>(a->getType());
+        llvm::Value* llvm_result = gen_llvm(getSign->getSigned() , a->getValue() , b->getValue());
+        return new QValue(new IntType(false,1) , llvm_result);
+    }
+    virtual bool gen_constant(long long left, long long right) = 0;
+    virtual QValue* constantCodegen(long long left, long long right){
+        bool result = gen_constant(left,right);
+        int i = result ? true : false;
+        IntType* qtype = new IntType(false,1);
+        llvm::Value* constInt =  ConstantInt::get(qtype->getLLVMType(), i);
+        return new QValue(qtype,constInt);
+    }
+    virtual void printAST() =0;
+    CompareOperator(Operators op):BOperator(op){
+    }
+};
+
+class ArithOperator : public BOperator {
+    public:
+    virtual QValue* codegen(QValue* a, QValue* b) {
+        IntType* getSign = dynamic_cast<IntType*>(a->getType());
+        llvm::Value* llvm_result = gen_llvm(getSign->getSigned() , a->getValue() , b->getValue());
+        return new QValue(a->getType(), llvm_result);
+    }
+    virtual long long gen_constant(long long left, long long right) = 0;
+    virtual void printAST() = 0;
+    virtual QValue* constantCodegen(long long left, long long right){
+        long long result = gen_constant(left,right);
+        ConstantType* qtype = new ConstantType(result);
+        llvm::Value* constInt =  ConstantInt::get(qtype->getLLVMType(), result);
+        return new QValue(qtype,constInt);
+    }
+    ArithOperator(Operators op):BOperator(op){}
+};
+
+class equal_sign : public CompareOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    bool gen_constant(long long left, long long right){
+        return left == right;
+    }
+    void printAST(){
+        printf("==");
+    }
+    equal_sign():CompareOperator(Operators::equal_sign){}
+};  // ==
+
+class not_equal : public CompareOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("!=");
+    }
+    bool gen_constant(long long left, long long right){
+        return left != right;
+    }
+    not_equal():CompareOperator(Operators::not_equal){}
+};  // !=
+
+class less_equal : public CompareOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("<=");
+    }
+    bool gen_constant(long long left, long long right){
+        return left <= right;
+    }
+    less_equal():CompareOperator(Operators::less_equal){}
+};  // <=
+
+class greater_equal : public CompareOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf(">=");
+    }
+    bool gen_constant(long long left, long long right){
+        return left >= right;
+    }
+    greater_equal():CompareOperator(Operators::greater_equal){}
+};  // >=
+
+class greater_than : public CompareOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf(">");
+    }
+    bool gen_constant(long long left, long long right){
+        return left > right;
+    }
+    greater_than():CompareOperator(Operators::greater_than){}
+};  // >
+
+class less_than : public CompareOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("<");
+    }
+    bool gen_constant(long long left, long long right){
+        return left < right;
+    }
+    less_than():CompareOperator(Operators::less_than){}
+};  // <
+
+class plus : public ArithOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("+");
+    }
+    long long gen_constant(long long left, long long right){
+        return left + right;
+    }
+    plus():ArithOperator(Operators::plus){}
+};  // +
+
+class minus : public ArithOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("-");
+    }
+    long long gen_constant(long long left, long long right){
+        return left - right;
+    }
+    minus():ArithOperator(Operators::minus){}
+};  // -
+
+class star : public ArithOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("*");
+    }
+    long long gen_constant(long long left, long long right){
+        return left * right;
+    }
+    star():ArithOperator(Operators::star){}
+};  // *
+
+class division : public ArithOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("/");
+    }
+    long long gen_constant(long long left, long long right){
+        if(right==0){
+            ErrorQ("The divisor cannot be 0",0);
+            exit(1);
+        }
+        return left / right;
+    }
+    division():ArithOperator(Operators::division){}
+};  // /
+
+class andT : public ArithOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("&");
+    }
+    long long gen_constant(long long left, long long right){
+        return left & right;
+    }
+    andT():ArithOperator(Operators::andT){}
+};  // &
+
+class orT : public ArithOperator{
+    public:
+    Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
+    void printAST(){
+        printf("|");
+    }
+    long long gen_constant(long long left, long long right){
+        return left | right;
+    }
+    orT():ArithOperator(Operators::orT){}
+};  // |
 
 //Base class
 class AST{
@@ -253,7 +594,6 @@ public:
 
 // Expression
 class ExprAST : public AST{
-
 public:
     ExprAST(ASTType type):AST(type){
        
@@ -265,7 +605,6 @@ public:
 
 // Commands
 class CommandAST : public AST{
-
 public:
     CommandAST(ASTType type):AST(type){
     }
@@ -276,7 +615,6 @@ public:
 
 // structure
 class StructureAST : public AST{
-
 public:
     StructureAST(ASTType type):AST(type){
     }
@@ -287,14 +625,13 @@ public:
 
 // LeftValue  is also expression
 class LeftValueAST : public ExprAST{
-
 public:
     LeftValueAST(ASTType type):ExprAST(type){
     }
     virtual ~LeftValueAST(){}
     virtual void printAST(int level=0){}
     virtual QValue* codegen(); //{ return NULL; }
-    virtual QValue* codegenLeft(){ return NULL;}
+    virtual const QAlloca* codegenLeft()=0;
 };
 
 // Variable
@@ -323,8 +660,8 @@ public:
 
         printf("%s",name.c_str());
     }
-//     QValue* codegen();
-    QValue* codegenLeft();
+
+    const QAlloca* codegenLeft();
 };
 
 // arrayIndex
@@ -339,8 +676,8 @@ public:
         index = std::move(index1);
         line = line1;
     }
-    QValue* codegenLeft();
-//     QValue* codegen();
+    const QAlloca* codegenLeft();
+
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");
@@ -448,11 +785,11 @@ public:
 /// UnaryExprAST - Expression class for a unary operator.
 class UnaryExprAST : public ExprAST
 {
-	Operators opCode;					  
+	UOperator* opCode;					  
 	std::unique_ptr<ExprAST> Operand; 
     int line;
 public:
-	UnaryExprAST(Operators opCode1, std::unique_ptr<ExprAST> Operand1, int line1) : ExprAST(ASTType::unary) {
+	UnaryExprAST(UOperator* opCode1, std::unique_ptr<ExprAST> Operand1, int line1) : ExprAST(ASTType::unary) {
         opCode = opCode1;
         Operand = move(Operand1);
         line = line1;
@@ -468,17 +805,7 @@ public:
             printf(" ");
         }
         printf("  operator: ");
-        switch(opCode){
-            case Operators::minus:
-            printf("-");
-            break;
-            case Operators::exclamation_point:
-            printf("!");
-            break;
-            default:
-            printf("wrong unary op");
-            break;
-        }
+        opCode->printAST();
         printf("\n");
         
         for(int i=0;i<level;i++){
@@ -492,11 +819,11 @@ public:
 /// BinaryExprAST - Expression class for a binary operator.
 class BinaryExprAST : public ExprAST
 {
-	Operators op;
+	BOperator* op;
 	std::unique_ptr<ExprAST> LHS, RHS;
     int line;
 public:
-	BinaryExprAST(Operators OpCode, std::unique_ptr<ExprAST> lhs, std::unique_ptr<ExprAST> rhs,int line1) 
+	BinaryExprAST(BOperator* OpCode, std::unique_ptr<ExprAST> lhs, std::unique_ptr<ExprAST> rhs,int line1) 
                  : ExprAST(ASTType::binary){
         op = OpCode;
         LHS = std::move(lhs);
@@ -521,50 +848,7 @@ public:
             printf(" ");
         }
         printf("  operator: ");
-        switch(op){
-            case Operators::equal_sign:  //==
-                printf("==");
-                break;
-	        case Operators::not_equal:   //!=
-                printf("!=");
-                break;
-	        case Operators::less_equal:  //<=
-                printf("<=");
-                break;
-	        case Operators::more_equal:  //>=
-                printf(">=");
-                break;
-	        case Operators::plus_sign:   //+
-                printf("+");
-                break;
-            case Operators::minus:       //-
-                printf("-");
-                break;
-            case Operators::star:        //*
-                printf("*");
-                break;
-	        case Operators::division:   // /
-                printf("/");
-                break;
-        	case Operators::more_sign:   // >
-                printf(">");
-                break;
-	        case Operators::less_sign:   // <
-                printf("<");
-                break;
-	        case Operators::assignment:  // =
-                printf("=");
-                break;
-            case Operators::andT:        // &
-                printf("&");
-                break;
-	        case Operators::orT:         // |
-                printf("|");
-                break;
-            default:
-                printf("error binary op");
-                break;
-        }
+        op->printAST();
         printf("\n");
 
         for(int i=0;i<level;i++){
@@ -580,11 +864,11 @@ public:
 
 /// newExprAST
 class NewExprAST : public ExprAST{
-    QType* type; 
+    PointType* type; 
     std::unique_ptr<ExprAST> size;
     int line;
 public:
-    NewExprAST(QType* type1, std::unique_ptr<ExprAST> size1, int line1) 
+    NewExprAST(PointType* type1, std::unique_ptr<ExprAST> size1, int line1) 
               :ExprAST(ASTType::newT)
     {
         type = type1;
@@ -617,28 +901,33 @@ public:
 };
 
 class DefAST : public CommandAST, public StructureAST{
+protected:
     bool global;
-public:
-    DefAST(ASTType type,bool g) : CommandAST(type),StructureAST(type){
-        global = g;
-    }
-};
-
-/// VarDefAST
-class VarDefAST : public DefAST{
-    IntType* type;
+    QType* type;
     std::string name;
     std::unique_ptr<ExprAST> value;
     int line;
 public:
-    VarDefAST(IntType* type1, std::string n, std::unique_ptr<ExprAST> v, bool global,int line1)
-             :DefAST(ASTType::varDef,global){
+    DefAST(QType* type1, std::string name1, std::unique_ptr<ExprAST> v, int line1, bool g, ASTType asttype) : CommandAST(asttype),StructureAST(asttype){
         type = type1;
-        name = n;
+        name = name1;
         value = std::move(v);
         line = line1;
+        global = g;
     }
-    bool codegenCommand();
+    virtual bool codegenCommand();
+    virtual GlobalVariable* globalInit();
+    virtual Function* globalInitFunc();
+    virtual bool codegenStructure() = 0;
+    virtual void printAST(int level=0) = 0;
+};
+
+/// VarDefAST
+class VarDefAST : public DefAST{ 
+public:
+    VarDefAST(IntType* type1, std::string n, std::unique_ptr<ExprAST> v, int line1, bool global)
+             :DefAST(type1,n,std::move(v),line1,global,ASTType::varDef){
+    }
     bool codegenStructure();
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -666,19 +955,11 @@ public:
 
 ///ArrayDefAST
 class ArrayDefAST : public DefAST{
-    PointType* type;
-    std::string name;
-    std::unique_ptr<ExprAST> value;
-    int line;
 public:
-    ArrayDefAST(PointType* type1, std::string n, std::unique_ptr<ExprAST> v,bool global,int line1)
-               :DefAST(ASTType::arrayDef,global)
-    {
-        type = type1;
-        name = n;
-        value = std::move(v);
-        line = line1;
-    }
+    ArrayDefAST(PointType* type1, std::string n, std::unique_ptr<ExprAST> v,int line1,bool global)
+               :DefAST(type1,n,std::move(v),line1,global,ASTType::arrayDef)
+    {}
+    bool codegenStructure();
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");
@@ -700,8 +981,6 @@ public:
         printf("  value: \n");
         value->printAST(level+4);
     }
-    bool codegenCommand();
-    bool codegenStructure();
 };
 
 ///AssignAST

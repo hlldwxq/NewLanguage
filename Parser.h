@@ -38,7 +38,7 @@ extern LLVMContext TheContext;
 
 void Bug(const char * info,int lineN);
 void ErrorQ(const char * info, int line);
-
+void ErrorD(const char* info, int line);
 enum class Token
 {
 	tok_eof,
@@ -85,12 +85,12 @@ enum class Token
 	equal_sign,  //==
 	not_equal,   //!=
 	less_equal,  //<=
-	more_equal,  //>=
+	greater_equal,  //>=
 	andT,                 // &
 	orT,                  // |
-	more_sign,            // >
-	less_sign,            // <
-	plus_sign,   //+
+	greater_than,            // >
+	less_than,            // <
+	plus,   //+
 	minus,       //-
 	star,        //*
 	disvision,   // /
@@ -140,7 +140,7 @@ private:
 	std::unique_ptr<NewExprAST> ParseNewExpr();
 	std::unique_ptr<ExprAST> ParseParen();
 	std::unique_ptr<ExprAST> ParseExpr();
-
+	std::unique_ptr<ExprAST> ParseBinaryExpr();
 	//===========Command========================//
 	std::unique_ptr<AssignAST> ParseAssign(std::string name);
 	std::unique_ptr<CommandAST> ParseIdentifier();

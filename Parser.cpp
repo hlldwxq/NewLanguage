@@ -10,20 +10,25 @@ void ErrorQ(const char * info, int line){
 // return nullptr;
 }
 
+void ErrorD(const char * info, int line){
+    fprintf(stderr, "Syntax Error: line %d -- %s\n",line, info);
+// return nullptr;
+}
+
 void Parser::initPrecedence(){
     BinopPrecedence[Token::assignment] = 2;         // =
     BinopPrecedence[Token::andT] = 5;               //&
     BinopPrecedence[Token::orT] = 5;                // |
-    BinopPrecedence[Token::less_sign] = 10;        // <
-    BinopPrecedence[Token::more_sign] = 10;        // >
-    BinopPrecedence[Token::less_equal] = 10;       // <=
-    BinopPrecedence[Token::more_equal] = 10;       // >=
+    BinopPrecedence[Token::less_than] = 10;         // <
+    BinopPrecedence[Token::greater_than] = 10;      // >
+    BinopPrecedence[Token::less_equal] = 10;        // <=
+    BinopPrecedence[Token::greater_equal] = 10;     // >=
     BinopPrecedence[Token::not_equal] = 10;         // ==
     BinopPrecedence[Token::equal_sign] = 10;        // ==
-    BinopPrecedence[Token::plus_sign] = 20;        // +
+    BinopPrecedence[Token::plus] = 20;              // +
     BinopPrecedence[Token::minus] = 20;	            // -
     BinopPrecedence[Token::star] = 40; 	            // *
-    BinopPrecedence[Token::disvision] = 40;        // /
+    BinopPrecedence[Token::disvision] = 40;         // /
 }
 
 long long Parser::string2longlong(std::string x) {
@@ -172,9 +177,9 @@ Token Parser::gettok(){
     LastChar = getChar();
         if(LastChar == '='){
             LastChar = getChar();
-            return Token::more_equal;
+            return Token::greater_equal;
         }else{
-            return Token::more_sign ;
+            return Token::greater_than;
         }
         break;
     case '<':
@@ -183,12 +188,12 @@ Token Parser::gettok(){
             LastChar = getChar();
             return Token::less_equal;
         }else{
-            return Token::less_sign ;
+            return Token::less_than ;
         }
         break;
     case '+': 
         LastChar = getChar() ;   
-        return Token::plus_sign;
+        return Token::plus;
         break;   					//+
     case '-': 
         LastChar = getChar(); 
@@ -300,7 +305,6 @@ bool Parser::isType(){
 QType* Parser::ParseType(){
     
     if(!isType()){
-        fprintf(stderr, "Syntax Error1: line %d -- %d\n",lineN, static_cast<int>(CurTok));
         ErrorQ("except a type",lineN);
         return NULL;
     }
@@ -360,6 +364,7 @@ QType* Parser::ParseType(){
         return nullptr;
     }
     QType* type = new IntType(isSigned,width);
+    
     getNextToken();
     while(CurTok==Token::star){
         type = new PointType(type);
@@ -376,9 +381,12 @@ void Parser::Parse(){
         if(structure != nullptr){
             //structure->printAST();
             bool success = structure->codegenStructure();
+            
             if(!success){
+                ErrorQ("error",0);
                 exit(0);
             }
+            
         }else{
             exit(0);
         }

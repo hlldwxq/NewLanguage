@@ -17,14 +17,16 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
     //get return Type
     if(CurTok == Token::tok_void){
         returnType = new ReturnType(true);
+        //ErrorD("return Type void",0);
         getNextToken();
     }else{ 
+        //ErrorD("not return Type void",0);
         returnType = new ReturnType(ParseType());
     }
     if(returnType==NULL){
         return nullptr;
     }
-
+    
     if(CurTok != Token::tok_identifier){
         ErrorQ("except the function name",lineN);
         return nullptr;
@@ -78,7 +80,7 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
     }
     getNextToken(); //eat )
     std::unique_ptr<PrototypeAST> proto = std::make_unique<PrototypeAST>(FnName,args,returnType,line1);
-    
+
     if(CurTok == Token::semicolon){
         getNextToken();
         return std::move(proto);

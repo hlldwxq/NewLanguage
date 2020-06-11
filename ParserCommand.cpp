@@ -4,7 +4,7 @@
 
 /// assign ::= leftvalue = expression
 std::unique_ptr<AssignAST> Parser::ParseAssign(std::string name){
-    
+
     int line1 = lineN;
     std::unique_ptr<LeftValueAST> left;
     
@@ -53,6 +53,7 @@ std::unique_ptr<CommandAST> Parser::ParseIdentifier(){
 
 /// return ::= return expression
 std::unique_ptr<ReturnAST> Parser::ParseReturn(){
+
     int line1 = lineN;
     if(CurTok != Token::tok_return)
         Bug("call ParseReturn, but no return",lineN);
@@ -67,6 +68,7 @@ std::unique_ptr<ReturnAST> Parser::ParseReturn(){
 
 /// block ::= {  cmd*  }
 std::unique_ptr<BlockAST> Parser::ParseBlock(){
+
     int line1 = lineN;
     if(CurTok != Token::left_brace)
         Bug("call ParseBlock, but no {",lineN);
@@ -93,6 +95,7 @@ std::unique_ptr<BlockAST> Parser::ParseBlock(){
 
 /// if ::= if condition then cmds [else cmds]
 std::unique_ptr<IfAST> Parser::ParseIf(){
+
     int line1 = lineN;
     if(CurTok != Token::tok_if)
         Bug("call ParseIf, but no if",lineN);
@@ -129,6 +132,7 @@ std::unique_ptr<IfAST> Parser::ParseIf(){
 /// def ::= Type variableName [ = expression] 
 ///     ::= Type arrayName*+ = new Type [expression]+
 std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global){
+
     int line1 = lineN;
     if(!isType()){
         Bug("call ParseVariableDef, but no type",lineN);
@@ -179,8 +183,10 @@ std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global){
                 ErrorQ("two types in a array definition need to be the same",lineN);
                 return nullptr;
             }
-            auto newType = ParseType();
-            
+            auto nType = ParseType();
+            if(!nType)
+                return nullptr;
+            PointType* newType = new PointType(nType);
             if(CurTok!=Token::left_square_bracket){
                 ErrorQ("unenough [, except [",lineN);
                 return nullptr;
@@ -208,6 +214,7 @@ std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global){
 
 /// for ::= for start, cond, step cmds
 std::unique_ptr<ForAST> Parser::ParseFor(){
+
     int line1 = lineN;
     if(CurTok != Token::tok_for)
         Bug("call ParseFor, but no for",lineN);
@@ -251,6 +258,7 @@ std::unique_ptr<ForAST> Parser::ParseFor(){
 
 /// while ::= while cond cmds
 std::unique_ptr<WhileAST> Parser::ParseWhile(){
+
     int line1 = lineN;
     if(CurTok != Token::tok_while)
         Bug("call ParseWhile, but no while",lineN);
@@ -268,6 +276,7 @@ std::unique_ptr<WhileAST> Parser::ParseWhile(){
 }
 
 std::unique_ptr<CommandAST> Parser::ParseCommand(){
+
     switch(CurTok){
     case Token::tok_identifier:
         return ParseIdentifier();
