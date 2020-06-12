@@ -1,8 +1,9 @@
 # NewLanguage
 
 For compiling the project, we could input make start.
-After compiling it, for running, we could input ./Parser, then the information of AST will be printed.
-You can modify the MakeFile if it doesn't work on your computer.
-file.k is still the test file.
+After compiling it, for running and Test, we could input make validTest
 
-After run the project, we could input make file.ast, to write the AST information in file.ast file.
+
+For testing invalid code, we have to modify the test file name which is hard codeed in main.cpp
+than compile the project again, than input make invalidTest
+
