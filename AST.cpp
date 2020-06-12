@@ -24,6 +24,11 @@
 std::unique_ptr<Module> TheModule;
 static Scope<QAlloca,QFunction,QGlobalVariable> scope;
 
+
+[[noreturn]] void error(std::string msg) {throw error_e(msg);}
+
+
+
 void CallInitFunction(){
     std::vector<Function*> funs = scope.getInitFunction();
     if(funs.size()==0)
@@ -248,8 +253,9 @@ llvm::PointerType* PointType::getLLVMType() const{
 llvm::Type* ConstantType::getLLVMType() const{
     int initSize = getSuitableWidth(value,true);
     if(initSize==0){
-        ErrorQ("invalid number when getting LLVM TYPE",value);
-        return NULL;
+        error("invalid number when getting LLVM TYPE");
+//         ErrorQ("invalid number when getting LLVM TYPE",value);
+//         return NULL;
     }
 
     return (new IntType(true,initSize))->getLLVMType();
@@ -297,7 +303,7 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
         return NULL;
     }
     
-    Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), {arrIndex});
+    Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
     
     PointType* pt = dynamic_cast<PointType*>(left->getType());
     QType* elementT = pt->getElementType();
@@ -464,25 +470,25 @@ QValue* NewExprAST::codegen(){
     return new QValue(type,result); // FIXME Type is pointerType(type)
 }
 
-bool DefAST::codegenCommand(){
+void DefAST::codegenCommand(){
     //ErrorD("def test",0);
     llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
     //ErrorD("def test",1);
     QAlloca* allo = new QAlloca(type,Alloca);
     //ErrorD("def test",2);
     if(!scope.addSymbol(name,allo)){
-        return false;
+        CommandAST::lerror("");
     }
 
     QValue* init = value->codegen();
     //ErrorD("def test",3);
     if(!init)
-        return false;
+        CommandAST::lerror("");
 
     init = assignCast(init,type);
     if(!init){
-        ErrorQ("type cannot be converted",line);
-        return false;
+        CommandAST::lerror("type cannot be converted");
+//         return false;
     }
     //ErrorD("def test",4);
     Value* store = Builder.CreateStore(init->getValue(), allo->getAlloca());
@@ -490,69 +496,57 @@ bool DefAST::codegenCommand(){
     if(!store){
         Bug("failed store",1);
     }
-    return true;
 }
 
-bool AssignAST::codegenCommand(){
+void AssignAST::codegenCommand(){
 
     const QAlloca* leftV = left->codegenLeft();
     if(!leftV)
-        return false;
+        lerror("");
 
     QValue* rightV = right->codegen();
     if(!rightV)
-        return false;
+        lerror("");
 
     rightV = assignCast(rightV,leftV->getType());
     if(!rightV){
-        ErrorQ("type cannot be converted",line);
-        return false;
+        lerror("type cannot be converted");
     }
 
     llvm::Value* store = Builder.CreateStore(rightV->getValue(), leftV->getAlloca());
     if(!store){
         Bug("failed store",0);
     }
-    return true;
 
 }
 
-bool ReturnAST::codegenCommand(){
+void ReturnAST::codegenCommand(){
 
     const QAlloca* returnAlloca = scope.findSymbol("return");
     if(!returnAlloca){
-        ErrorQ("The function does not need return value",line);
-        return false;
+        lerror("The function does not need return value");
     }
     QValue* returnQv = value->codegen();
-    if(!returnQv)
-        return false;
+    if(!returnQv) lerror("");
 
     returnQv = assignCast(returnQv,returnAlloca->getType());
     if(!returnQv){
-        ErrorQ("type cannot be converted",line);
-        return false;
+        lerror("type cannot be converted");
     }
 
     Value* store = Builder.CreateStore(returnQv->getValue(), returnAlloca->getAlloca());
     if(!store){
         Bug("failed store",0);
-        return false;
     }
-    return true;
 }
 
-bool BlockAST::codegenCommand(){
- 
+void BlockAST::codegenCommand(){
     for(int i=0 ; i < cmds.size(); i++){
-        bool success = cmds[i]->codegenCommand();
-        if(!success)
-            return false;
+        cmds[i]->codegenCommand();
     }
-    return true;
 }
 
-bool PrototypeAST::codegenStructure(){
+void PrototypeAST::codegenStructure(){
 
     std::vector<llvm::Type*> args;
     
@@ -578,17 +572,14 @@ bool PrototypeAST::codegenStructure(){
 
     bool success = scope.addFunction(Name,functionQ);
     if(!success){
-        ErrorQ("the function has been declared",line);
-        return false;
+        error("the function has been declared");
     }
-    return true;
 }
 
-bool FunctionAST::codegenStructure(){
+void FunctionAST::codegenStructure(){
 
-    bool pro = Proto->codegenStructure();
-    if(!pro)
-        return false;
+    Proto->codegenStructure();
+
     Function* function = scope.getFunction(Proto->getFunctionName())->getFunction();
 
     auto &P = *Proto;
@@ -611,16 +602,13 @@ bool FunctionAST::codegenStructure(){
         llvm::AllocaInst* Alloca = Builder.CreateAlloca(t->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
         QAlloca* allo = new QAlloca(t, Alloca);
         if(!scope.addSymbol(name,allo)){
-            ErrorQ("the identifier has been declared",line);
-            return false;
+            error("the identifier has been declared");
         }
         Builder.CreateStore(&Arg, Alloca);
         i++;
     }
 
-    bool bo = Body->codegenCommand();
-    if(!bo)
-        return false;
+    Body->codegenCommand();
 
     if(P.getReturnType()->getIsVoid())
         Builder.CreateRetVoid();
@@ -630,12 +618,10 @@ bool FunctionAST::codegenStructure(){
     }
 
     scope.removeScope();
-
-    return true;
 }
 
 QValue* NullExprAST::codegen(){
-    return NULL;
+    Bug("not yet implemented",line);
 }
 
 QValue* CallExprAST::codegen(){
@@ -646,13 +632,11 @@ QValue* CallExprAST::codegen(){
 
     ReturnType* returnType = call->getReturnType();
     if(returnType->getIsVoid()){
-        ErrorQ("the return type of the function is void, cannot be the right value",line);
-        return NULL;
+        ExprAST::lerror("the return type of the function is void, cannot be the right value");
     }
 
     if(func->arg_size()!=args.size()){
-        ErrorQ("The number of participating arguments does not match",line);
-        return NULL;
+        ExprAST::lerror("The number of participating arguments does not match");
     }
     
     std::vector<Value*> ArgsV;
@@ -661,13 +645,10 @@ QValue* CallExprAST::codegen(){
         
         QType* needArgType = argsType[i];
         QValue* realArg = args[i]->codegen();
-        if(!realArg)
-            return NULL;
         
         realArg = assignCast(realArg,needArgType);
         if(!realArg){
-            ErrorQ("type cannot be converted",line);
-            return NULL;
+            ExprAST::lerror("type cannot be converted");
         }
         ArgsV.push_back(realArg->getValue());
     }
@@ -675,29 +656,24 @@ QValue* CallExprAST::codegen(){
 
 }
 
-bool CallExprAST::codegenCommand(){
-
-    QValue* callCodegen = codegen();
-    if(!callCodegen)
-        return false;
-
-    return true;
+void CallExprAST::codegenCommand(){
+    codegen();
 }
 
-bool IfAST::codegenCommand(){
-    return true;
+void IfAST::codegenCommand(){
+    Bug("not yet implemented",line);
 }
 
-bool ForAST::codegenCommand(){
-    return true;
+void ForAST::codegenCommand(){
+    Bug("not yet implemented",line);
 }
 
-bool WhileAST::codegenCommand(){
-    return true;
+void WhileAST::codegenCommand(){
+    Bug("not yet implemented",line);
 }
 
-bool BreakAST::codegenCommand(){
-    return true;
+void BreakAST::codegenCommand(){
+    Bug("not yet implemented",line);
 }
 
 GlobalVariable* DefAST::globalInit(){
@@ -708,8 +684,7 @@ GlobalVariable* DefAST::globalInit(){
                                     GlobalValue::CommonLinkage,constantP,name); 
     TheModule->getGlobalList().push_back(globalV);
     if(!scope.addGloabalVar(name,new QGlobalVariable(type,globalV))){
-        ErrorQ("the gloabal variable has been declared",line);
-        return NULL;
+        CommandAST::lerror("the gloabal variable has been declared");
     }
     return globalV;
 }
@@ -728,29 +703,24 @@ Function* DefAST::globalInitFunc(){
     ////ErrorD("error",4);
 }
 
-bool VarDefAST::codegenStructure(){
+void VarDefAST::codegenStructure(){
     ////ErrorD("var",1);
     GlobalVariable* globalV = globalInit();
-    if(!globalV){
-        return false;
-    }
+    assert(globalV);
 
     QValue* qvalue = value->codegen();
     if(!(qvalue->getType()->isConstant())){
-        ErrorQ("the value of gloable variable must be constant",line);
-        return false;
+        CommandAST::lerror("the value of global variable must be constant");
     }
 
     ConstantType* numType = dynamic_cast<ConstantType*>(qvalue->getType());
     if(numType->getValue() != 0){
         IntType* leftType = dynamic_cast<IntType*>(type);
         if(leftType->getSigned() && numType->getValue()<0){
-            ErrorQ("cannot assign a negative value to an unsigned variable",line);
-            return false;
+            CommandAST::lerror("cannot assign a negative value to an unsigned variable");
         }
         if(getSuitableWidth(numType->getValue(),leftType->getSigned()) > leftType->getWidth()){
-            ErrorQ("type cannot be converted",line);
-            return false;
+            CommandAST::lerror("type cannot be converted");
         }
         
         Function* F = globalInitFunc();
@@ -760,15 +730,12 @@ bool VarDefAST::codegenStructure(){
         scope.addInitFunction(F);
     }
     ////ErrorD("var",2);
-    return true;
 }
 
-bool ArrayDefAST::codegenStructure(){
+void ArrayDefAST::codegenStructure(){
     ////ErrorD("array",1);
     GlobalVariable* globalV = globalInit();
-    if(!globalV){
-        return false;
-    }
+
     ////ErrorD("array",2);
     if(value->getType()!=ASTType::nullT){
         
@@ -781,8 +748,7 @@ bool ArrayDefAST::codegenStructure(){
         Value* rightV = rightQv->getValue();
         ////ErrorD("array",3);
         if(!type->compare(rightQt)){
-            ErrorQ("The types on both sides of the equal sign must be the same",line);
-            return false;
+            CommandAST::lerror("The types on both sides of the equal sign must be the same");
         }
         ////ErrorD("array",4);
         Builder.CreateStore(rightV, globalV);
@@ -791,8 +757,8 @@ bool ArrayDefAST::codegenStructure(){
         scope.addInitFunction(F);
     }
     ////ErrorD("array",5);
-    return true;
 }
+
 
 /*
 

@@ -7,11 +7,13 @@ void Bug(const char * info,int lineN){
 
 void ErrorQ(const char * info, int line){
     fprintf(stderr, "Syntax Error: line %d -- %s\n",line, info);
+	exit(1);
 // return nullptr;
 }
 
 void ErrorD(const char * info, int line){
     fprintf(stderr, "Syntax Error: line %d -- %s\n",line, info);
+	exit(1);
 // return nullptr;
 }
 
@@ -380,12 +382,12 @@ void Parser::Parse(){
         std::unique_ptr<StructureAST> structure = ParseStructure();
         if(structure != nullptr){
             //structure->printAST();
-            bool success = structure->codegenStructure();
+            structure->codegenStructure();
             
-            if(!success){
-                ErrorQ("error",0);
-                exit(0);
-            }
+//             if(!success){
+//                 ErrorQ("error",0);
+//                 exit(0);
+//             }
             
         }else{
             exit(0);

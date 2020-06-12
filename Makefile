@@ -1,13 +1,16 @@
 C_SOURCES = $(shell find . -name "*.cpp")
 C_OBJECTS = $(patsubst %.cpp, %.o, $(C_SOURCES))
 
-C_FLAGS = -Wall `llvm-config-10 --cxxflags --ldflags --system-libs --libs core mcjit native orcjit`
+C_FLAGS = -Wall -I/usr/lib/llvm-10/include -std=c++14 -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -L/usr/lib/llvm-10/lib                                                                                     -lLLVM-10
+# C_FLAGS = -Wall `llvm-config-10 --cxxflags --ldflags --system-libs --libs core mcjit native orcjit`
 # TODO add -Wextra for your own files only, if possible?
 
-all: llvmir tests
+all: llvmir
 
 tests: validTest invalidTest
 
+clean:
+	rm -rf *.o llvmir
 
 llvmir: $(C_OBJECTS)
 	clang++-10 -g $(C_OBJECTS) $(C_FLAGS) -o llvmir
