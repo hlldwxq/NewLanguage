@@ -131,7 +131,7 @@ std::unique_ptr<IfAST> Parser::ParseIf(){
 
 /// def ::= Type variableName [ = expression] 
 ///     ::= Type arrayName*+ = new Type [expression]+
-std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global){
+std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global=false){
 
     int line1 = lineN;
     if(!isType()){
@@ -160,7 +160,7 @@ std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global){
             if(value==nullptr)
                 return nullptr;              
         }
-        return std::make_unique<VarDefAST>(dynamic_cast<IntType*>(type),name,std::move(value),global,line1);
+        return std::make_unique<VarDefAST>(dynamic_cast<IntType*>(type),name,std::move(value),line1,global);
     }else{
         std::unique_ptr<ExprAST> right;
         
@@ -208,7 +208,7 @@ std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global){
         }else{ // no assignment, default value is null
             right = std::make_unique<NullExprAST>(line1);
         }
-        return std::make_unique<ArrayDefAST>(dynamic_cast<PointType*>(type),name,std::move(right),global,line1);
+        return std::make_unique<ArrayDefAST>(dynamic_cast<PointType*>(type),name,std::move(right),line1,global);
     }
 }
 

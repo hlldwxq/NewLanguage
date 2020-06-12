@@ -9,7 +9,7 @@ start: $(C_OBJECTS)
 	clang++-10 -g $(C_OBJECTS) $(C_FLAGS) -o llvmir
 .cpp.o:
 	@echo Compiling cpp source code files $< ...
-	clang++-10 -g -c $< $(C_FLAGS) -o $@
+	clang++-10 -Wall -g -c $< $(C_FLAGS) -o $@
 
 
 validTest: llvmir validCodeTest.c

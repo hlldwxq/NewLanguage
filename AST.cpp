@@ -16,6 +16,8 @@
 
  */
 
+
+
 #include "AST.h"
 #include "Scope.h"
 #include <assert.h>
@@ -400,31 +402,80 @@ QValue* BinaryExprAST::codegen(){
     
 }
 
+/*
+May be useful information:
+1. bool llvm::DataLayout::isLegalInteger	(	uint64_t 	Width	)	const
+Returns true if the specified type is known to be a native integer type supported by the CPU.
+For example, i64 is not native on most 32-bit CPUs and i37 is not native on any known one. This returns false if the integer width is not legal.
+The width is specified in bits.
+
+Type* llvm::DataLayout::getLargestLegalIntType	(	LLVMContext & 	C	)	const
+Returns the largest legal integer type, or null if none are set.
+https://llvm.org/doxygen/classllvm_1_1DataLayout.html#a1fc35d2c9705ccecc0fe45c5ac123e47
+
+2. 
+const StructLayout * DataLayout::getStructLayout	(	StructType * 	Ty	)	const
+Returns a StructLayout object, indicating the alignment of the struct, its size, and the offsets of its fields.
+Note that this information is lazily cached.
+Public Member Functions
+   uint64_t 	getSizeInBytes () const
+   uint64_t 	getSizeInBits () const
+    https://llvm.org/doxygen/classllvm_1_1StructLayout.html
+    https://llvm.org/doxygen/classllvm_1_1StructType.html
+
+*/
 QValue* NewExprAST::codegen(){
     
+    /* have been tried, but does not work
+        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+        Type* t = dataLayOut.getLargestLegalIntType(TheContext);
+    */
+    /* the result is zero
+        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+        static StructType* 	structType = StructType::create(TheContext);
+        const StructLayout* structLayout = dataLayOut->getStructLayout(structType);
+        uint64_t sizeByte = structLayout->getSizeInBytes();
+        //ErrorD("struct layout", sizeByte);
+    */
+    /* the result is always zero
+        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+        bool result1 = dataLayOut->isLegalInteger(8);
+        //ErrorD("is legal size", result1);
+    */
+
     Type* t = Type::getIntNTy(TheContext,sizeof(size_t)*8);  // FIXME: Should use size-type of TARGET PLATFORM, not platform compiler is running on
+    
     Value* arraySize = (size->codegen())->getValue();
     
-    Value* mallocSize = ConstantExpr::getSizeOf(type->getElementType()->getLLVMType());
-    
+    Value* mallocSize = ConstantExpr::getSizeOf(type->getElementType()->getLLVMType()); //the return type of getSizeOf is i64
+    //ErrorD("new expr test",3);
     mallocSize = ConstantExpr::getTruncOrBitCast(cast<Constant>(mallocSize),t); // TODO: Downcast may overflow. Check!
-    
+    //ErrorD("new expr test",4);
+    // TODO: Check if createMalloc can overflow computation! e.g. size = 2^31, type = i128 on 32-bit arch
+    // check mallocSize * arraySize overflow
+    // %res = call {i32, i1} @llvm.umul.with.overflow.i32(i32 %a, i32 %b)
+    // %sum = extractvalue {i32, i1} %res, 0
+    // %obit = extractvalue {i32, i1} %res, 1
+    // br i1 %obit, label %overflow, label %normal
+
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t, type->getElementType()->getLLVMType(), mallocSize,arraySize,nullptr,"");
     
-    // TODO: Check if createMalloc can overflow computation! e.g. size = 2^31, type = i128 on 32-bit arch
     Value* result = Builder.Insert(var_malloc);
     return new QValue(type,result); // FIXME Type is pointerType(type)
 }
 
 bool DefAST::codegenCommand(){
-
+    //ErrorD("def test",0);
     llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
+    //ErrorD("def test",1);
     QAlloca* allo = new QAlloca(type,Alloca);
+    //ErrorD("def test",2);
     if(!scope.addSymbol(name,allo)){
         return false;
     }
 
     QValue* init = value->codegen();
+    //ErrorD("def test",3);
     if(!init)
         return false;
 
@@ -433,9 +484,9 @@ bool DefAST::codegenCommand(){
         ErrorQ("type cannot be converted",line);
         return false;
     }
-
+    //ErrorD("def test",4);
     Value* store = Builder.CreateStore(init->getValue(), allo->getAlloca());
-
+    //ErrorD("def test",5);
     if(!store){
         Bug("failed store",1);
     }
@@ -664,7 +715,7 @@ GlobalVariable* DefAST::globalInit(){
 }
 
 Function* DefAST::globalInitFunc(){
-    //ErrorD("error",3);
+    ////ErrorD("error",3);
     std::vector<llvm::Type*> args;
     
     llvm::Type* returnT = llvm::Type::getVoidTy(TheContext);
@@ -674,11 +725,11 @@ Function* DefAST::globalInitFunc(){
     BasicBlock *BB = BasicBlock::Create(TheContext, "entry", F);
     Builder.SetInsertPoint(BB);
     return F;
-    //ErrorD("error",4);
+    ////ErrorD("error",4);
 }
 
 bool VarDefAST::codegenStructure(){
-    //ErrorD("var",1);
+    ////ErrorD("var",1);
     GlobalVariable* globalV = globalInit();
     if(!globalV){
         return false;
@@ -708,38 +759,38 @@ bool VarDefAST::codegenStructure(){
         Builder.CreateRetVoid();
         scope.addInitFunction(F);
     }
-    //ErrorD("var",2);
+    ////ErrorD("var",2);
     return true;
 }
 
 bool ArrayDefAST::codegenStructure(){
-    //ErrorD("array",1);
+    ////ErrorD("array",1);
     GlobalVariable* globalV = globalInit();
     if(!globalV){
         return false;
     }
-    //ErrorD("array",2);
+    ////ErrorD("array",2);
     if(value->getType()!=ASTType::nullT){
         
         Function* F = globalInitFunc();
-        //ErrorD("array",21);
+        ////ErrorD("array",21);
         QValue* rightQv = value->codegen();
-        //ErrorD("array",22);
+        ////ErrorD("array",22);
         QType* rightQt = rightQv->getType();
-        //ErrorD("array",23);
+        ////ErrorD("array",23);
         Value* rightV = rightQv->getValue();
-        //ErrorD("array",3);
+        ////ErrorD("array",3);
         if(!type->compare(rightQt)){
             ErrorQ("The types on both sides of the equal sign must be the same",line);
             return false;
         }
-        //ErrorD("array",4);
+        ////ErrorD("array",4);
         Builder.CreateStore(rightV, globalV);
         Builder.CreateRetVoid();
 
         scope.addInitFunction(F);
     }
-    //ErrorD("array",5);
+    ////ErrorD("array",5);
     return true;
 }
 

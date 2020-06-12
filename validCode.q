@@ -1,6 +1,8 @@
+#sint16* t = new sint16 [3]
 # ============ binary expression ============= #
 #signed
 def sint64 snumAndVarPara(sint8 var1){
+     sint8* ptr = new sint8 [3]
      sint64 var2
      var2 = 128 + var1                # the type of var1 will be changed
      var2 = -128 + var2               # the type of constant num will be changed
