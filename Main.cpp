@@ -1,7 +1,13 @@
 #include "Parser.h"
 
-int main(){
-    std::string fileName = "validCode.q";
+int main(int argc, char **argv){
+
+    if (argc != 2) {
+      std::cerr<<"Usage llvmir <filename>"<<std::endl;
+      exit(1);
+    }
+
+    std::string fileName = argv[1];  // "validCode.q";
 	std::ifstream in(fileName);
     std::ostringstream tmp;
     tmp << in.rdbuf();
@@ -9,5 +15,5 @@ int main(){
     //fprintf(stderr, " -- %s\n",tmp.str().c_str());
     Parser parser = Parser(tmp.str());
     parser.Parse();
-    TheModule->print(errs(), nullptr);
+    TheModule->print(outs(), nullptr);
 }
