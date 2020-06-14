@@ -348,9 +348,17 @@ public:
 };
 
 class UOperator{
+    protected:
+    Operators opType;
     public:
     virtual QValue* codegen(QValue* operand) = 0; // TODO: Do never return null, but throw exception
     virtual void printAST() = 0;
+    UOperator(Operators op){
+        opType = op;
+    }
+    virtual Operators getOpType(){
+        return opType;
+    }
 };
 
 class exclamation : public UOperator{
@@ -359,18 +367,17 @@ class exclamation : public UOperator{
         QType* type = operand->getType();
         if(type->getIsPointer()){
             error("! with pointer");
-//             return NULL;
         }    
 
         IntType* intType = dynamic_cast<IntType*>(type);
         if(intType->getSigned()!=false || intType->getWidth()!=1){
             error("! with non-bool");
-//             return NULL;
         }
 
         llvm::Value* realValue = Builder.CreateNot(operand->getValue());
         return new QValue(type,realValue);
     }
+    exclamation(Operators op = Operators::exclamation_point):UOperator(op){}
     void printAST(){
         printf("-");
     }
@@ -382,18 +389,16 @@ class negative : public UOperator{
         QType* type = operand->getType();
         if(type->getIsPointer()){
             error("- with pointer");
-//             return NULL;
         }
 
         IntType* intType = dynamic_cast<IntType*>(type);
         if(intType->getSigned()!=true){
             error("! with unsigned");
-//             return NULL;
         }
-
         llvm::Value* minu = Builder.CreateNeg(operand->getValue());
         return new QValue(type,minu);
     }
+    negative(Operators op = Operators::minus):UOperator(op){}
     void printAST(){
         printf("!");
     }
@@ -410,6 +415,7 @@ class BOperator{
     virtual Operators getOpType(){
         return opType;
     }
+    virtual bool isCompareOp() = 0;
     BOperator(Operators op){
         opType = op;
     }
@@ -433,6 +439,9 @@ class CompareOperator : public BOperator{
     virtual void printAST() =0;
     CompareOperator(Operators op):BOperator(op){
     }
+    virtual bool isCompareOp(){
+        return true;
+    }
 };
 
 class ArithOperator : public BOperator {
@@ -451,6 +460,9 @@ class ArithOperator : public BOperator {
         return new QValue(qtype,constInt);
     }
     ArithOperator(Operators op):BOperator(op){}
+    virtual bool isCompareOp(){
+        return false;
+    }
 };
 
 class equal_sign : public CompareOperator{
@@ -570,7 +582,6 @@ class division : public ArithOperator{
     long long gen_constant(long long left, long long right){
         if(right==0){
             error("The divisor cannot be 0");
-//             exit(1);
         }
         return left / right;
     }
@@ -631,12 +642,19 @@ public:
 
 // Commands
 class CommandAST : public AST{
+protected:
+    bool totallyRet; 
 public:
-    CommandAST(ASTType type,int l):AST(type,l){
+    CommandAST(ASTType type,int l,bool ret):AST(type,l){
+        totallyRet = ret;
     }
+
     virtual ~CommandAST(){}
     virtual void codegenCommand()=0; // Throws error
     virtual void printAST(int level=0){}
+    virtual bool isRet(){
+        return totallyRet;
+    }
 };
 
 // structure
@@ -763,7 +781,7 @@ class CallExprAST : public ExprAST, public CommandAST
 	std::vector<std::unique_ptr<ExprAST>> args;
 public:
 	CallExprAST(std::string functionName1, std::vector<std::unique_ptr<ExprAST>> args1,int line1)
-		       : ExprAST(ASTType::call,line1), CommandAST(ASTType::call,line1), args(std::move(args1))
+		       : ExprAST(ASTType::call,line1), CommandAST(ASTType::call,line1,false), args(std::move(args1))
     {
         functionName = functionName1;
     }
@@ -811,7 +829,9 @@ public:
     }
 
     QValue* codegen();
-
+    Operators getOperatorType(){
+        return opCode->getOpType();
+    }
     void printAST(int level=0){
 
         printf("unary expr:\n"); 
@@ -871,7 +891,12 @@ public:
         printf("  right:\n");
         RHS->printAST(level+4);
     }
-
+    Operators getOperatorType(){
+        return op->getOpType();
+    }
+    bool isCompareOp(){
+        return op->isCompareOp();
+    }
     QValue* codegen();
 
 };
@@ -919,7 +944,7 @@ protected:
     std::string name;
     std::unique_ptr<ExprAST> value;
 public:
-    DefAST(QType* type1, std::string name1, std::unique_ptr<ExprAST> v, int line1, bool g, ASTType asttype) : CommandAST(asttype,line1),StructureAST(asttype,line1){
+    DefAST(QType* type1, std::string name1, std::unique_ptr<ExprAST> v, int line1, bool g, ASTType asttype) : CommandAST(asttype,line1,false),StructureAST(asttype,line1){
         type = type1;
         name = name1;
         value = std::move(v);
@@ -999,7 +1024,7 @@ class AssignAST : public CommandAST{
     std::unique_ptr<ExprAST> right;
 public:
     AssignAST(std::unique_ptr<LeftValueAST> l, std::unique_ptr<ExprAST> r, int line1)
-             :CommandAST(ASTType::assign,line1){
+             :CommandAST(ASTType::assign,line1,false){
         left = std::move(l);
         right = std::move(r);
     }
@@ -1030,8 +1055,8 @@ class IfAST : public CommandAST{
     std::unique_ptr<CommandAST> thenC;
     std::unique_ptr<CommandAST> elseC;
 public:
-    IfAST( std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> t, std::unique_ptr<CommandAST> e, int line1)
-              : CommandAST(ASTType::ifT,line1)
+    IfAST( std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> t, std::unique_ptr<CommandAST> e, int line1,bool isRet)
+              : CommandAST(ASTType::ifT,line1,isRet)
     {
         condition = std::move(cond);
         thenC = std::move(t);
@@ -1075,7 +1100,7 @@ class ForAST : public CommandAST{
     std::unique_ptr<CommandAST> body;
 public:
     ForAST(std::unique_ptr<CommandAST> start1,std::unique_ptr<ExprAST> condition1,long long step1,std::unique_ptr<CommandAST> body1, int line1)
-          : CommandAST(ASTType::forT,line1)
+          : CommandAST(ASTType::forT,line1,false)
     {
         start = std::move(start1);
         condition = std::move(condition1);
@@ -1120,8 +1145,8 @@ class WhileAST : public CommandAST{
     std::unique_ptr<ExprAST> condition;
     std::unique_ptr<CommandAST> body;
 public:
-    WhileAST(std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> cmd, int line1)
-            : CommandAST(ASTType::whileT,line1){
+    WhileAST(std::unique_ptr<ExprAST> cond, std::unique_ptr<CommandAST> cmd, int line1, bool isRet)
+            : CommandAST(ASTType::whileT,line1,isRet){
         condition = std::move(cond);
         body = std::move(cmd);
     }
@@ -1151,7 +1176,7 @@ public:
 class ReturnAST : public CommandAST{
     std::unique_ptr<ExprAST> value;
 public:
-    ReturnAST(std::unique_ptr<ExprAST> v, int line1) : CommandAST(ASTType::returnT,line1){
+    ReturnAST(std::unique_ptr<ExprAST> v, int line1) : CommandAST(ASTType::returnT,line1,true){
         value = std::move(v);
     }
     void printAST(int level=0){
@@ -1167,7 +1192,7 @@ public:
 ///breakAST
 class BreakAST : public CommandAST{
     public:
-    BreakAST(int line1):CommandAST(ASTType::breakT,line1){
+    BreakAST(int line1):CommandAST(ASTType::breakT,line1,false){
     }
     void printAST(int level=0){
         for(int i=0;i<level;i++){
@@ -1182,13 +1207,11 @@ class BreakAST : public CommandAST{
 class BlockAST : public CommandAST{
     std::vector<std::unique_ptr<CommandAST>> cmds;
     public:
-    BlockAST(std::vector<std::unique_ptr<CommandAST>> c,int line1):CommandAST(ASTType::body,line1){
+    BlockAST(std::vector<std::unique_ptr<CommandAST>> c,int line1,bool isRet):CommandAST(ASTType::body,line1,isRet){
         cmds = std::move(c);
     }
-    BlockAST(int line1):CommandAST(ASTType::body,line1){
-        //std::vector<std::unique_ptr<CommandAST>> c;
-        //cmds = c;
-    }
+    BlockAST(int line1):CommandAST(ASTType::body,line1,false){}
+
     void printAST(int level=0){
         for(int i=0;i<level;i++){
             printf(" ");

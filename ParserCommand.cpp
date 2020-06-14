@@ -75,13 +75,16 @@ std::unique_ptr<BlockAST> Parser::ParseBlock(){
 
     getNextToken(); //eat {
     std::vector<std::unique_ptr<CommandAST>> cmds;
-
+    bool hasRet = false;
     while(CurTok != Token::right_brace && CurTok!=Token::tok_eof){
-       // ErrorQ("parse cmd,no error",lineN);
         std::unique_ptr<CommandAST> cmd = ParseCommand();
         if(cmd == nullptr)
             return nullptr;
-        cmds.push_back(std::move(cmd));
+        if(!hasRet){ // ignore the command after return
+            if(cmd->isRet())
+                hasRet = true;
+            cmds.push_back(std::move(cmd));
+        }
     }
 
     if(CurTok != Token::right_brace){
@@ -90,13 +93,14 @@ std::unique_ptr<BlockAST> Parser::ParseBlock(){
     }
     getNextToken(); //eat }
 
-    return std::make_unique<BlockAST>(std::move(cmds),line1);
+    return std::make_unique<BlockAST>(std::move(cmds),line1,hasRet);
 }
 
 /// if ::= if condition then cmds [else cmds]
 std::unique_ptr<IfAST> Parser::ParseIf(){
 
     int line1 = lineN;
+    int retNum = 0;
     if(CurTok != Token::tok_if)
         Bug("call ParseIf, but no if",lineN);
 
@@ -115,7 +119,10 @@ std::unique_ptr<IfAST> Parser::ParseIf(){
     std::unique_ptr<CommandAST> then = ParseCommand();
     if(then == nullptr)
         return nullptr;
-    
+
+    if(then->isRet())
+        retNum++;
+
     std::unique_ptr<CommandAST> elseT;
     if(CurTok != Token::tok_else)
         elseT = std::make_unique<BlockAST>(line1);  //empty block
@@ -126,7 +133,9 @@ std::unique_ptr<IfAST> Parser::ParseIf(){
             return nullptr;
     }
 
-    return std::make_unique<IfAST>(std::move(con),std::move(then),std::move(elseT),line1);
+    if(elseT->isRet())
+        retNum++;
+    return std::make_unique<IfAST>(std::move(con),std::move(then),std::move(elseT),line1,retNum==2);
 }
 
 /// def ::= Type variableName [ = expression] 
@@ -272,7 +281,7 @@ std::unique_ptr<WhileAST> Parser::ParseWhile(){
     if(cmds == nullptr)
         return nullptr;
 
-    return std::make_unique<WhileAST>(std::move(cond),std::move(cmds),line1);
+    return std::make_unique<WhileAST>(std::move(cond),std::move(cmds),line1,cmds->isRet());
 }
 
 std::unique_ptr<CommandAST> Parser::ParseCommand(){

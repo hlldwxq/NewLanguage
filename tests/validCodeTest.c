@@ -166,7 +166,6 @@ int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
    var18 = 65535;
    printf("unsigned call function as return value: %d\n",uReturnCallPara(var18)==var18);//arg1 32767 ~ -32768
 
-
    return 0;
 }
 

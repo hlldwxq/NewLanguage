@@ -4,17 +4,8 @@ void Bug(const char * info,int lineN){
 	fprintf(stderr, "There is Bug that need to be solved: %s , at %d\n" , info,lineN);
 	exit(1);
 }
-
-void ErrorQ(const char * info, int line){
-    fprintf(stderr, "Syntax Error: line %d -- %s\n",line, info);
-	exit(1);
-// return nullptr;
-}
-
-void ErrorD(const char * info, int line){
-    fprintf(stderr, "Syntax Error: line %d -- %s\n",line, info);
-	exit(1);
-// return nullptr;
+void ErrorQ(const char * info,int lineN){
+    std::cout<<info<<" "<<lineN<<std::endl;
 }
 
 void Parser::initPrecedence(){
@@ -276,8 +267,8 @@ Token Parser::gettok(){
 Token Parser::getNextToken(){   
     CurTok = gettok();
     if(CurTok == Token::error_token){
-        ErrorQ("unvalid character or word",lineN);
-        exit(1);
+        error("unvalid character or word");
+        //exit(1);
     } 
     // printf( "Now Token: line %d -- %d\n",lineN, static_cast<int>(CurTok));
 
@@ -307,8 +298,8 @@ bool Parser::isType(){
 QType* Parser::ParseType(){
     
     if(!isType()){
-        ErrorQ("except a type",lineN);
-        return NULL;
+        error("except a type");
+        //return NULL;
     }
     unsigned long long width;
     bool isSigned;
@@ -362,7 +353,7 @@ QType* Parser::ParseType(){
         isSigned = false;
         break;
         default:
-        ErrorQ("expect a type",lineN);
+        error("expect a type");
         return nullptr;
     }
     QType* type = new IntType(isSigned,width);
@@ -383,12 +374,6 @@ void Parser::Parse(){
         if(structure != nullptr){
             //structure->printAST();
             structure->codegenStructure();
-            
-//             if(!success){
-//                 ErrorQ("error",0);
-//                 exit(0);
-//             }
-            
         }else{
             exit(0);
         }

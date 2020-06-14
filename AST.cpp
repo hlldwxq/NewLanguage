@@ -253,9 +253,8 @@ llvm::PointerType* PointType::getLLVMType() const{
 llvm::Type* ConstantType::getLLVMType() const{
     int initSize = getSuitableWidth(value,true);
     if(initSize==0){
-        error("invalid number when getting LLVM TYPE");
-//         ErrorQ("invalid number when getting LLVM TYPE",value);
-//         return NULL;
+        TheModule->print(outs(), nullptr);
+        error("invalid number when getting LLVM TYPE1");
     }
 
     return (new IntType(true,initSize))->getLLVMType();
@@ -268,16 +267,18 @@ llvm::Type* ReturnType::getLLVMType() const{
     }else {
         return qType->getLLVMType();
     }
+    
 }
 
 const QAlloca* VariableAST::codegenLeft(){
 
     const QAlloca* Alloca = scope.findSymbol(name);
     if(!Alloca){
-        const QGlobalVariable* global = scope.findGloableVar(name);
+        const QGlobalVariable* global = scope.findGlobalVar(name);
         if(!global){
-            ErrorQ("Undeclared variables",line);
-            return NULL;
+            TheModule->print(outs(), nullptr);
+            printf("%s\n",name.c_str());//<<std::endl;
+            error("invalid number when getting LLVM TYPE");
         }
 
         Alloca = new QAlloca(global->getType(),global->getGlobalVariable());
@@ -294,13 +295,13 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     if(left->getType()->isConstant()){
         
         if(dynamic_cast<ConstantType*>(left->getType())->getValue()<0){
-            ErrorQ("the index of array cannot be negative",line);
-            return NULL;
+            error("the index of array cannot be negative");
+            //return NULL;
         }
     }
     if(!left->getType()->getIsPointer()){
-        ErrorQ("left expression must be a pointer",line);
-        return NULL;
+        error("left expression must be a pointer");
+        //return NULL;
     }
     
     Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
@@ -336,8 +337,8 @@ QValue* UnaryExprAST::codegen(){
     }
     QValue* result = opCode->codegen(value);
     if(!result){
-        ErrorQ("The data type after the unary operator does not meet the requirements",line);
-        return NULL;
+        error("The data type after the unary operator does not meet the requirements");
+        //return NULL;
     }
     return result;
 }
@@ -354,8 +355,8 @@ QValue* BinaryExprAST::codegen(){
     }
 
     if(leftQV->getType()->getIsPointer() || rightQV->getType()->getIsPointer()){
-        ErrorQ("The operands of a binary operator cannot be a pointer",line);
-        return NULL;
+        error("The operands of a binary operator cannot be a pointer");
+        //return NULL;
     }
 
     if(leftQV->getType()->isConstant() && rightQV->getType()->isConstant()){
@@ -369,15 +370,15 @@ QValue* BinaryExprAST::codegen(){
             IntType* rightInt = dynamic_cast<IntType*>(rightQV->getType());
             leftQV = adjustSign(leftQV,rightInt->getSigned());
             if(!leftQV){
-                ErrorQ("unvalid binary calculation between signed number and unsigned number",line);
-                return NULL;
+                error("unvalid binary calculation between signed number and unsigned number");
+                //return NULL;
             }
         }else{
             IntType* leftInt = dynamic_cast<IntType*>(leftQV->getType());
             rightQV = adjustSign(rightQV,leftInt->getSigned());
             if(!rightQV){
-                ErrorQ("unvalid binary calculation between signed number and unsigned number",line);
-                return NULL;
+                error("unvalid binary calculation between signed number and unsigned number");
+               // return NULL;
             }
         }
     }
@@ -388,8 +389,8 @@ QValue* BinaryExprAST::codegen(){
 
     if(leftInt->getSigned()!=rightInt->getSigned()){
         
-        ErrorQ("invalid binary calculation between signed number and unsigned number",line);
-        return NULL;
+        error("invalid binary calculation between signed number and unsigned number");
+        //return NULL;
     }
 
     if(leftInt->getWidth()!=rightInt->getWidth()){
@@ -522,13 +523,13 @@ void AssignAST::codegenCommand(){
 
 void ReturnAST::codegenCommand(){
 
-    const QAlloca* returnAlloca = scope.findSymbol("return");
+    //const QAlloca* returnAlloca = scope.findSymbol("return");
+    const QAlloca* returnAlloca = scope.getReturnAlloca();
     if(!returnAlloca){
         lerror("The function does not need return value");
     }
     QValue* returnQv = value->codegen();
-    if(!returnQv) lerror("");
-
+    
     returnQv = assignCast(returnQv,returnAlloca->getType());
     if(!returnQv){
         lerror("type cannot be converted");
@@ -538,12 +539,24 @@ void ReturnAST::codegenCommand(){
     if(!store){
         Bug("failed store",0);
     }
+
+    Function *f = Builder.GetInsertBlock()->getParent();
+    for(auto iter = f->getBasicBlockList().begin(); iter != f->getBasicBlockList().end();iter++)
+    {
+        BasicBlock &bb = *iter;
+        if(bb.getName().str() == "returnBB") {
+            Builder.CreateBr(&bb);
+        }
+    }
 }
 
 void BlockAST::codegenCommand(){
+    scope.addScope();
     for(int i=0 ; i < cmds.size(); i++){
         cmds[i]->codegenCommand();
     }
+    
+    scope.removeScope();
 }
 
 void PrototypeAST::codegenStructure(){
@@ -585,13 +598,15 @@ void FunctionAST::codegenStructure(){
     auto &P = *Proto;
 
     BasicBlock *BB = BasicBlock::Create(TheContext, "entry", function);
+    BasicBlock *returnBB = BasicBlock::Create(TheContext, "returnBB", function);
 	Builder.SetInsertPoint(BB);
 
     scope.addScope();
     llvm::AllocaInst* retAlloca;
     if(!P.getReturnType()->getIsVoid()){
         retAlloca = Builder.CreateAlloca(P.getReturnType()->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1));
-        scope.addSymbol("return",new QAlloca(P.getReturnType()->getType(),retAlloca));
+        scope.setReturnAlloca(new QAlloca(P.getReturnType()->getType(),retAlloca));
+       // scope.addSymbol("return",new QAlloca(P.getReturnType()->getType(),retAlloca));
     }
 
     std::vector<std::pair<std::string,QType*>> args = P.getArgs();
@@ -601,6 +616,7 @@ void FunctionAST::codegenStructure(){
         QType* t = args[i].second; 
         llvm::AllocaInst* Alloca = Builder.CreateAlloca(t->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
         QAlloca* allo = new QAlloca(t, Alloca);
+        //QAlloca* allo = new QAlloca(t, &Arg);
         if(!scope.addSymbol(name,allo)){
             error("the identifier has been declared");
         }
@@ -609,15 +625,26 @@ void FunctionAST::codegenStructure(){
     }
 
     Body->codegenCommand();
-
-    if(P.getReturnType()->getIsVoid())
+    printf("a");
+    Builder.SetInsertPoint(returnBB);
+    printf("a1");
+    if(P.getReturnType()->getIsVoid()){
+        printf("a2");
         Builder.CreateRetVoid();
+        printf("a3");
+    }
     else{
+        printf("a4");
+        if(scope.getReturnNum()<=0)
+            lerror("the function need return");
         llvm::Value* retValue = Builder.CreateLoad(retAlloca);
+        printf("a5");
 		Builder.CreateRet(retValue);
+        printf("a6");
     }
 
     scope.removeScope();
+    printf("a7");
 }
 
 QValue* NullExprAST::codegen(){
@@ -660,8 +687,89 @@ void CallExprAST::codegenCommand(){
     codegen();
 }
 
+bool judgeValidCond(std::unique_ptr<ExprAST> cond){
+    if( cond->getType() == ASTType::unary ){
+
+        UnaryExprAST* unary = dynamic_cast<UnaryExprAST*>(cond.get());
+        if(unary->getOperatorType()==Operators::minus)
+            return false;
+
+    }else if(cond->getType() == ASTType::binary){
+
+        BinaryExprAST* binary = dynamic_cast<BinaryExprAST*>(cond.get());
+        return binary->isCompareOp();
+
+    }
+    return true;
+}
+
+void returnBr(){
+
+    Function *f = Builder.GetInsertBlock()->getParent();
+    for(auto iter = f->getBasicBlockList().begin(); iter != f->getBasicBlockList().end();iter++)
+    {
+        BasicBlock &bb = *iter;
+        if(bb.getName().str() == "returnBB") {
+            Builder.CreateBr(&bb);
+        }
+    }
+} 
+
 void IfAST::codegenCommand(){
-    Bug("not yet implemented",line);
+    
+    QValue* CondV = condition->codegen();
+    
+    if(!judgeValidCond(std::move(condition))){
+        lerror("the condition is invalid");
+    }
+    printf("a\n");
+    Function *TheFunction = Builder.GetInsertBlock()->getParent();
+    BasicBlock *returnBB;
+    printf("a1\n");
+    for(auto iter = TheFunction->getBasicBlockList().begin(); iter != TheFunction->getBasicBlockList().end();iter++)
+    {
+        BasicBlock &bb = *iter;
+        if(bb.getName().str() == "returnBB") {
+            returnBB = &bb;
+        }
+    }
+    printf("a2\n");
+	// Create blocks for the then and else cases.  Insert the 'then' block at the
+	// end of the function.
+	BasicBlock *ThenBB = BasicBlock::Create(TheContext, "then", TheFunction,returnBB);
+	BasicBlock *ElseBB = BasicBlock::Create(TheContext, "else",TheFunction,returnBB);
+    BasicBlock *MergeBB;
+    if(!isRet())
+	    MergeBB = BasicBlock::Create(TheContext, "afterIf",TheFunction,returnBB);
+    printf("a3\n");
+	Builder.CreateCondBr(CondV->getValue(), ThenBB, ElseBB);
+
+	// Emit then value.
+	Builder.SetInsertPoint(ThenBB);
+	thenC->codegenCommand();
+    printf("a4\n");
+    if(!thenC->isRet()) 
+        Builder.CreateBr(MergeBB);
+    printf("a5\n");
+	// Codegen of 'Then' can change the current block, update ThenBB for the PHI.
+	ThenBB = Builder.GetInsertBlock();
+
+	// Emit else block.
+	Builder.SetInsertPoint(ElseBB);
+	elseC->codegenCommand();
+	printf("a6\n");
+    if(!elseC->isRet()) 
+        Builder.CreateBr(MergeBB);
+        
+    printf("a7\n");
+	// Codegen of 'Else' can change the current block, update ElseBB for the PHI.
+	ElseBB = Builder.GetInsertBlock();
+    printf("a8\n");
+	// Emit merge block.
+    if(!isRet()){
+        Builder.SetInsertPoint(MergeBB);
+    }
+    printf("a9\n");
 }
 
 void ForAST::codegenCommand(){
@@ -683,7 +791,7 @@ GlobalVariable* DefAST::globalInit(){
     GlobalVariable * globalV = new GlobalVariable(type->getLLVMType(),false, 
                                     GlobalValue::CommonLinkage,constantP,name); 
     TheModule->getGlobalList().push_back(globalV);
-    if(!scope.addGloabalVar(name,new QGlobalVariable(type,globalV))){
+    if(!scope.addGlobalVar(name,new QGlobalVariable(type,globalV))){
         CommandAST::lerror("the gloabal variable has been declared");
     }
     return globalV;

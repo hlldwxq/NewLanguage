@@ -12,9 +12,15 @@ class Scope{
 
     std::vector<typename std::map<std::string,const T*>> symbolTable;
     typename std::map<std::string,const T1*> functionTable;
-    typename std::map<std::string,const T2*> gloabalVariable;
-    std::vector<Function*> initFunction;
+    typename std::map<std::string,const T2*> globalVariable;
+    std::vector<Function*> initFunction; //init global var
+    const T* returnAlloca;
+    unsigned long returnNum;
 public:
+    Scope(){
+        returnAlloca = NULL;
+        returnNum = 0;
+    }
 
     void addInitFunction(Function* f){
         initFunction.push_back(f);
@@ -59,11 +65,16 @@ public:
             return false;
         }
         symbolTable.pop_back(); 
+        if(symbolTable.size() == 0){
+            returnAlloca = NULL;
+            returnNum = 0;
+        }
         return true;
     }
 
     const T* findSymbol(std::string name){
 
+        
         for( int i = symbolTable.size()-1 ; i>=0 ; i--){
             typename std::map<std::string,const T*> symbolMap = symbolTable[i];
             typename std::map<std::string,const T*>::iterator iter = symbolMap.find(name);
@@ -74,20 +85,33 @@ public:
         return NULL;
     }
 
-    bool addGloabalVar(std::string name, T2* gv){
+    bool addGlobalVar(std::string name, T2* gv){
         
-        if(gloabalVariable.find(name)!=gloabalVariable.end()){
+        if(globalVariable.find(name)!=globalVariable.end()){
             return false; //cannot get the line number, thus ask codegen to emit error info
         }
-        gloabalVariable[name] = gv;
+        globalVariable[name] = gv;
         return true;
     }
 
-    const T2* findGloableVar(std::string name){
-        if(gloabalVariable.find(name)!=gloabalVariable.end()){
-            return gloabalVariable[name]; 
+    const T2* findGlobalVar(std::string name){
+        if(globalVariable.find(name)!=globalVariable.end()){
+            return globalVariable[name]; 
             //cannot get the line number, thus ask codegen to emit error info
         }
         return NULL;
+    }
+
+    const T* getReturnAlloca(){
+        returnNum++;
+        return returnAlloca;
+    }
+
+    void setReturnAlloca(T* rAlloca){
+        returnAlloca = rAlloca;
+    }
+
+    unsigned long getReturnNum(){
+        return returnNum;
     }
 };
