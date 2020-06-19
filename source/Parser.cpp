@@ -6,9 +6,9 @@ void Bug(const char * info,int lineN){
 	fprintf(stderr, "There is Bug that need to be solved: %s , at %d\n" , info,lineN);
 	exit(1);
 }
-void ErrorQ(const char * info,int lineN){
+/*void ErrorQ(const char * info,int lineN){
     std::cout<<info<<" "<<lineN<<std::endl;
-}
+}*/
 
 void Parser::initPrecedence(){
     BinopPrecedence[Token::assignment] = 2;         // =
