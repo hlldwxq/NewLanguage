@@ -1,3 +1,4 @@
 *.log
-llvmir.ll
 validCodeTest
+*.out
+*.ll
