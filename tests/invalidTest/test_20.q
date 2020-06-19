@@ -1,4 +1,4 @@
-# EXPECT Error:type cannot be converted
+# EXPECT type cannot be converted
 def uint16 test(){
 
   uint32 ret2 = 5

@@ -122,7 +122,8 @@ public:
     }
     virtual ~QType(){}
     virtual bool getIsPointer() const = 0;
-    virtual llvm::Type* getLLVMType() const = 0; 
+
+    virtual llvm::Type* getLLVMType() const = 0;
     virtual void printAST() const = 0; 
     virtual bool isConstant() const = 0;
     virtual bool compare(QType const* ty) const = 0;
@@ -199,6 +200,7 @@ public:
     bool getIsPointer() const{
         return false;
     }
+
     void printAST() const{
         if(isSigned){
             printf("signed ");
@@ -216,7 +218,13 @@ public:
       return getSigned()==ity->getSigned() && getWidth()==ity->getWidth();
     }
 
+public:
+  static IntType bool_type;
+
 };
+
+
+
 
 class PointType : public QType{
     QType* elementType;
@@ -253,6 +261,7 @@ public:
     bool getIsPointer() const{
         return true;
     }
+
 };
 
 //The reason why I need the type is becasue,like in the cast:
@@ -461,17 +470,20 @@ class ArithOperator : public BOperator {
     }
     
     virtual void OverFlowCheck(QValue* left, QValue* right){
-        Function *TheFunction = Builder.GetInsertBlock()->getParent();
-
-        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
-        Type* t = dataLayOut->getLargestLegalIntType(TheContext);
         
         std::vector<Type*> args_type;
         args_type.push_back(left->getType()->getLLVMType()); 
         args_type.push_back(right->getType()->getLLVMType());
         
         Function* overFlow = overFlowDeclare(args_type,dynamic_cast<IntType*>(left->getType())->getSigned());
+        if (!overFlow) return;
         
+        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+        Type* t = dataLayOut->getLargestLegalIntType(TheContext);
+
+
         std::vector<llvm::Value*> fun_arguments;
         fun_arguments.push_back(left->getValue()); 
         fun_arguments.push_back(right->getValue());
@@ -667,7 +679,10 @@ class andT : public ArithOperator{
     long long gen_constant(long long left, long long right){
         return left & right;
     }
-    Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned){Bug("and symbol does has overflow check",getLine());}
+    Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
+        //Bug("and symbol does has overflow check",getLine());
+      return NULL;
+    }
     andT(int line):ArithOperator(Operators::andT,line){}
 };  // &
 
@@ -680,7 +695,10 @@ class orT : public ArithOperator{
     long long gen_constant(long long left, long long right){
         return left | right;
     }
-    Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned){Bug("or symbol does has overflow check",getLine());}
+    Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
+      //Bug("or symbol does has overflow check",getLine());
+      return NULL;
+    }
     orT(int line):ArithOperator(Operators::orT,line){}
 };  // |
 
@@ -887,6 +905,10 @@ public:
     }
     void codegenCommand();
     QValue* codegen();
+
+private:
+    QValue* codegen_internal(bool is_cmd);
+
 };
 
 /// UnaryExprAST - Expression class for a unary operator.

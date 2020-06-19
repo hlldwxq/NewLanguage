@@ -1,4 +1,4 @@
-# EXPECT Error:unvalid binary calculation between signed number and unsigned number
+# EXPECT unvalid binary calculation between signed number and unsigned number
 def uint16 test(){
 
   uint8 var3

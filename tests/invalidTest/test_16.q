@@ -1,4 +1,4 @@
-# EXPECT Error:type cannot be converted
+# EXPECT type cannot be converted
 
 def void ValidTest1(sint8 a, sint8 b){
 

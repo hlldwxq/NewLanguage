@@ -1,4 +1,4 @@
-# EXPECT Error:type cannot be converted
+# EXPECT type cannot be converted
 def uint16 test(){
 
   sint64* p5 = new sint64*[5]

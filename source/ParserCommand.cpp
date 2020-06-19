@@ -55,17 +55,39 @@ std::unique_ptr<CommandAST> Parser::ParseIdentifier(){
 /// return ::= return expression
 std::unique_ptr<ReturnAST> Parser::ParseReturn(){
 
+
+    /*
+      return a
+
+      if (x) then return
+      a = 5
+      -->  if (x) then { return (a = 5) }
+
+      -->
+      def void f(uint64 x) {
+        if (x) then { return void }
+        a = 5
+      }
+
+     */
+
     int line1 = lineN;
     if(CurTok != Token::tok_return)
         Bug("call ParseReturn, but no return",lineN);
 
     getNextToken(); //eat return
-    std::unique_ptr<ExprAST> value = ParseExpr();
-    if(value==nullptr){
-        return nullptr;
+
+    if (CurTok == Token::tok_void) {
+      Parser::addReturnNum(); // TODO: Obsolete?
+      return std::make_unique<ReturnAST>(nullptr,line1);
+    } else {
+      std::unique_ptr<ExprAST> value = ParseExpr();
+      if(value==nullptr){
+          return nullptr;
+      }
+      Parser::addReturnNum(); // TODO: Obsolete?
+      return std::make_unique<ReturnAST>(std::move(value),line1);
     }
-    Parser::addReturnNum();
-    return std::make_unique<ReturnAST>(std::move(value),line1);
 }
 
 /// block ::= {  cmd*  }

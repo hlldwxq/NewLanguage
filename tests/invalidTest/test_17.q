@@ -1,4 +1,4 @@
-# EXPECT Error:the index of array cannot be negative
+# EXPECT the index of array cannot be negative
 def uint16 test(){
 
   sint64* arr1 = new sint64[3]

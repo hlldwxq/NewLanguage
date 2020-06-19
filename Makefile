@@ -30,6 +30,7 @@ clean:
 
 cleandy:
 	rm -rf $(DIR_TEST)/dynamicCheck/*.ll $(DIR_TEST)/dynamicCheck/*.log $(DIR_TEST)/dynamicCheck/*.out
+	rm -rf $(DIR_TEST)/validTest/*.{ll,log,out}
 
 
 Q = $(wildcard $(DIR_TEST)/dynamicCheck/*.q)
@@ -41,24 +42,39 @@ dynamicTest: llvmir $(O)
 	$(DIR_TEST)/dynamicCheck/dynamicCheck.sh
 
 $(O) : $(C) $(IR)
-	clang-10 -Wall -Wextra -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
+	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
+	clang-10 -O2 -Wall -Wextra -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
 
-$(IR) : $(Q)
-	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ 2>&1 | true
-		
+$(IR) : $(Q) llvmir
+	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
 
 
+VT_Q = $(wildcard $(DIR_TEST)/validTest/*.q)
+VT_IR = $(patsubst %.q, %.ll, $(VT_Q))
+VT_C = $(patsubst %.q, %.c, $(VT_Q))
+VT_O = $(patsubst %.q, %.out, $(VT_Q))
 
-validTest: llvmir $(DIR_TEST)/validTest/validCodeTest.c $(DIR_TEST)/validTest/validCode.q
-	./llvmir DyCheck $(DIR_TEST)/validTest/validCode.q > $(DIR_TEST)/validTest/valid.ll || echo "TODO FIXME Fix this segfault!"
-	
-	llvm-as-10 -disable-output $(DIR_TEST)/validTest/valid.ll
-	
-	clang-10 -Wall -Wextra -g -o $(DIR_TEST)/validTest/validCodeTest $(DIR_TEST)/validTest/validCodeTest.c $(DIR_TEST)/validTest/valid.ll
-	
+validTest: llvmir $(VT_O)
 	$(DIR_TEST)/validTest/validTest.sh
- 	#./validCodeTest > validCodeTest.log
- 	#if egrep -v ": 1" validCodeTest.log; then exit 1; else exit 0; fi
+
+$(VT_O) : $(VT_C) $(VT_IR)
+	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
+	clang-10 -O2 -Wall -Wextra -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
+
+$(VT_IR) : $(VT_Q) llvmir
+	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
+
+
+# validTest: llvmir $(DIR_TEST)/validTest/validCodeTest.c $(DIR_TEST)/validTest/validCode.q
+# 	./llvmir DyCheck $(DIR_TEST)/validTest/validCode.q > $(DIR_TEST)/validTest/valid.ll
+#
+# 	llvm-as-10 -disable-output $(DIR_TEST)/validTest/valid.ll
+#
+# 	clang-10 -Wall -Wextra -g -o $(DIR_TEST)/validTest/validCodeTest $(DIR_TEST)/validTest/validCodeTest.c $(DIR_TEST)/validTest/valid.ll
+#
+# 	$(DIR_TEST)/validTest/validTest.sh
+#  	#./validCodeTest > validCodeTest.log
+#  	#if egrep -v ": 1" validCodeTest.log; then exit 1; else exit 0; fi
 
 
 

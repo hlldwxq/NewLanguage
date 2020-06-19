@@ -2,7 +2,10 @@
 #include "../header/Scope.h"
 #include <assert.h>
 
-Scope<QAlloca,QFunction,QGlobalVariable> scope;
+IntType IntType::bool_type = IntType(false,1);
+
+
+Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
 [[noreturn]] void error(std::string msg) {throw error_e(msg);}
 
 std::unique_ptr<Module>& getModule(){
@@ -586,6 +589,24 @@ void AssignAST::codegenCommand(){
 void ReturnAST::codegenCommand(){
 
     //const QAlloca* returnAlloca = scope.findSymbol("return");
+
+    const ReturnType *rt = scope.getRetType();
+
+    if (rt->getIsVoid()) {
+      if (value!=NULL) lerror("return from void function cannot return value");
+      Builder.CreateRetVoid();
+    } else {
+      if (value==NULL) lerror("return from non-void function cannot return void");
+
+      QValue* returnQv = value->codegen();
+      returnQv = assignCast(returnQv,rt->getType());
+      if(!returnQv){
+          lerror("type cannot be converted");
+      }
+
+      Builder.CreateRet(returnQv->getValue());
+    }
+/*
     const QAlloca* returnAlloca = scope.getReturnAlloca();
     if(!returnAlloca){
         lerror("The function does not need return value");
@@ -597,6 +618,9 @@ void ReturnAST::codegenCommand(){
         lerror("type cannot be converted");
     }
 
+    Builder.createRet(returnQv->getValue());*/
+
+  /*
     Value* store = Builder.CreateStore(returnQv->getValue(), returnAlloca->getAlloca());
     if(!store){
         Bug("failed store",0);
@@ -610,6 +634,7 @@ void ReturnAST::codegenCommand(){
             Builder.CreateBr(&bb); //will not meet an error when there is no returnBB
         }
     }
+  */
 }
 
 void BlockAST::codegenCommand(){
@@ -660,6 +685,8 @@ void FunctionAST::codegenStructure(){
     auto &P = *Proto;
 
     BasicBlock *BB = BasicBlock::Create(TheContext, "entry", function);
+
+    /*
     BasicBlock *returnBB = NULL;
     if(!P.getReturnType()->getIsVoid()){
         if(Body->isRet() && Parser::getReturnNum()>1){ 
@@ -667,16 +694,20 @@ void FunctionAST::codegenStructure(){
             returnBB = BasicBlock::Create(TheContext, "returnBB", function);
         }
     }
+    */
     
 	Builder.SetInsertPoint(BB);
 
     scope.addScope();
-    llvm::AllocaInst* retAlloca;
-    if(!P.getReturnType()->getIsVoid()){
-        retAlloca = Builder.CreateAlloca(P.getReturnType()->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1));
-        scope.setReturnAlloca(new QAlloca(P.getReturnType()->getType(),retAlloca));
-       // scope.addSymbol("return",new QAlloca(P.getReturnType()->getType(),retAlloca));
-    }
+
+    scope.setRetType(P.getReturnType());
+
+//     llvm::AllocaInst* retAlloca;
+//     if(!P.getReturnType()->getIsVoid()){
+//         retAlloca = Builder.CreateAlloca(P.getReturnType()->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1));
+//         scope.setReturnAlloca(new QAlloca(P.getReturnType()->getType(),retAlloca));
+//        // scope.addSymbol("return",new QAlloca(P.getReturnType()->getType(),retAlloca));
+//     }
 
     std::vector<std::pair<std::string,QType*>> args = P.getArgs();
     int i=0;
@@ -695,21 +726,30 @@ void FunctionAST::codegenStructure(){
     }
 
     Body->codegenCommand();
-    if(returnBB != NULL){
-        //make sure the returnBB at the end of func
-        returnBB->moveAfter(&(function->getBasicBlockList().back()));
-        Builder.SetInsertPoint(returnBB);
-    }
 
-    if(P.getReturnType()->getIsVoid()){
-        Builder.CreateRetVoid();
-    }
-    else{
-        llvm::Value* retValue = Builder.CreateLoad(retAlloca);
-		Builder.CreateRet(retValue);
+    if (!Body->isRet()) {
+      if (!P.getReturnType()->getIsVoid()) error("non-void function needs return");
+      Builder.CreateRetVoid();
     }
 
     scope.removeScope();
+
+
+//     if(returnBB != NULL){
+//         //make sure the returnBB at the end of func
+//         returnBB->moveAfter(&(function->getBasicBlockList().back()));
+//         Builder.SetInsertPoint(returnBB);
+//     }
+//
+//     if(P.getReturnType()->getIsVoid()){
+//         Builder.CreateRetVoid();
+//     }
+//     else{
+//         llvm::Value* retValue = Builder.CreateLoad(retAlloca);
+// 		Builder.CreateRet(retValue);
+//     }
+//
+//     scope.removeScope();
     
 }
 
@@ -717,14 +757,14 @@ QValue* NullExprAST::codegen(){
     Bug("not yet implemented",line);
 }
 
-QValue* CallExprAST::codegen(){
+QValue* CallExprAST::codegen_internal(bool is_cmd) {
 
     const QFunction* call = scope.getFunction(functionName);
     Function* func = call->getFunction();
     std::vector<QType*> argsType = call->getArgsType();
 
     ReturnType* returnType = call->getReturnType();
-    if(returnType->getIsVoid()){
+    if(!is_cmd && returnType->getIsVoid()){
         ExprAST::lerror("the return type of the function is void, cannot be the right value");
     }
 
@@ -745,13 +785,23 @@ QValue* CallExprAST::codegen(){
         }
         ArgsV.push_back(realArg->getValue());
     }
-    return new QValue(returnType->getType(),Builder.CreateCall(func, ArgsV, "calltmp"));
 
+    if (is_cmd) {
+      Builder.CreateCall(func, ArgsV);
+      return NULL;
+    } else {
+      return new QValue(returnType->getType(),Builder.CreateCall(func, ArgsV, "calltmp"));
+    }
 }
 
 void CallExprAST::codegenCommand(){
-    codegen();
+    codegen_internal(true);
 }
+
+QValue* CallExprAST::codegen(){
+  return codegen_internal(false);
+}
+
 
 bool judgeValidCond(std::unique_ptr<ExprAST> cond){
     if( cond->getType() == ASTType::unary ){
@@ -773,9 +823,14 @@ void IfAST::codegenCommand(){
     
     QValue* CondV = condition->codegen();
     
-    if(!judgeValidCond(std::move(condition))){
-        lerror("the condition is invalid");
+    CondV = assignCast(CondV,&IntType::bool_type);
+    if(!CondV){
+        lerror("type cannot be converted to Boolean");
     }
+
+//     if(!judgeValidCond(std::move(condition))){
+//         lerror("the condition is invalid");
+//     }
 
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
 

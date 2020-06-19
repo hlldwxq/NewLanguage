@@ -6,19 +6,20 @@
 #include <string>
 
 
-template <class T, class T1, class T2>
+template <class T, class T1, class T2, class T3>
 class Scope{
 
     std::vector<typename std::map<std::string,const T*>> symbolTable;
     typename std::map<std::string,const T1*> functionTable;
     typename std::map<std::string,const T2*> globalVariable;
     std::vector<const T1*> initFunction; //init global var
-    const T* returnAlloca;
-    unsigned long returnNum;
+    const T3* retType = NULL;
+//     const T* returnAlloca;
+//     unsigned long returnNum;
 public:
     Scope(){
-        returnAlloca = NULL;
-        returnNum = 0;
+//         returnAlloca = NULL;
+//         returnNum = 0;
     }
 
     void addInitFunction(T1* f){
@@ -65,8 +66,9 @@ public:
         }
         symbolTable.pop_back(); 
         if(symbolTable.size() == 0){
-            returnAlloca = NULL;
-            returnNum = 0;
+          retType=NULL;
+//             returnAlloca = NULL;
+//             returnNum = 0;
         }
         return true;
     }
@@ -99,22 +101,25 @@ public:
         return NULL;
     }
 
-    const T* getReturnAlloca(){
-        returnNum++;
-        return returnAlloca;
-    }
+    const T3* getRetType() {assert(retType); return retType;}
+    void setRetType(const T3* r) {retType = r;}
 
-    void setReturnAlloca(T* rAlloca){
-        returnAlloca = rAlloca;
-    }
-
-    unsigned long getReturnNum(){
-        return returnNum;
-    }
-
-    void addReturnNum(){
-        returnNum++;
-    }
+//     const T* getReturnAlloca(){
+//         returnNum++;
+//         return returnAlloca;
+//     }
+//
+//     void setReturnAlloca(T* rAlloca){
+//         returnAlloca = rAlloca;
+//     }
+//
+//     unsigned long getReturnNum(){
+//         return returnNum;
+//     }
+//
+//     void addReturnNum(){
+//         returnNum++;
+//     }
    /* Scope();
 
     void addInitFunction(T1* f);
