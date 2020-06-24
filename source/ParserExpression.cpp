@@ -3,17 +3,16 @@
 ///==========Expression========================//
 
 /// boolExpr ::= true   false
-std::unique_ptr<NumberExprAST> Parser::ParseBoolConstantExpr(){
+std::unique_ptr<ConstantBoolAST> Parser::ParseBoolConstantExpr(){
     int line1 = lineN;
     if(CurTok != Token::tok_true && CurTok != Token::tok_false)
         Bug("call ParseBoolExpr, except true or false",lineN);
     
-    int b = (CurTok == Token::tok_true) ? 1 : 0;
+    bool b = (CurTok == Token::tok_true) ? true : false;
     
-    std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(b,line1);
+    std::unique_ptr<ConstantBoolAST> num = std::make_unique<ConstantBoolAST>(b,line1);
     getNextToken(); // eat the bool
     return num;
-
 }
 
 /// boolExpr ::= null

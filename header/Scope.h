@@ -14,13 +14,9 @@ class Scope{
     typename std::map<std::string,const T2*> globalVariable;
     std::vector<const T1*> initFunction; //init global var
     const T3* retType = NULL;
-//     const T* returnAlloca;
-//     unsigned long returnNum;
+    llvm::BasicBlock* breakBB = NULL;
+
 public:
-    Scope(){
-//         returnAlloca = NULL;
-//         returnNum = 0;
-    }
 
     void addInitFunction(T1* f){
         initFunction.push_back(f);
@@ -67,8 +63,6 @@ public:
         symbolTable.pop_back(); 
         if(symbolTable.size() == 0){
           retType=NULL;
-//             returnAlloca = NULL;
-//             returnNum = 0;
         }
         return true;
     }
@@ -104,50 +98,8 @@ public:
     const T3* getRetType() {assert(retType); return retType;}
     void setRetType(const T3* r) {retType = r;}
 
-//     const T* getReturnAlloca(){
-//         returnNum++;
-//         return returnAlloca;
-//     }
-//
-//     void setReturnAlloca(T* rAlloca){
-//         returnAlloca = rAlloca;
-//     }
-//
-//     unsigned long getReturnNum(){
-//         return returnNum;
-//     }
-//
-//     void addReturnNum(){
-//         returnNum++;
-//     }
-   /* Scope();
+    llvm::BasicBlock* getBreakBB(){ return breakBB; }
+    void setBreakBB(llvm::BasicBlock* bb){ breakBB = bb; }
 
-    void addInitFunction(T1* f);
-
-    std::vector<const T1*> getInitFunction();
-
-    bool addFunction(std::string name, T1* qf);
-
-    const T1* getFunction(std::string fname);
-
-    bool addSymbol(std::string name , T* Alloca);
-
-    void addScope();
-
-    bool removeScope();
-
-    const T* findSymbol(std::string name);
-
-    bool addGlobalVar(std::string name, T2* gv);
-
-    const T2* findGlobalVar(std::string name);
-
-    const T* getReturnAlloca();
-
-    void setReturnAlloca(T* rAlloca);
-
-    unsigned long getReturnNum();
-
-    void addReturnNum();*/
 };
 #endif

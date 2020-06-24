@@ -49,8 +49,6 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
         
         if(!isType()){
             error("expect a type at line: "+std::to_string(lineN));
-          //  ErrorQ("expected a type for a argument",lineN);
-          //  return nullptr;
         }
         QType* t = ParseType();
         if(t==NULL){
@@ -60,15 +58,12 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
         std::string argName;
         if(CurTok != Token::tok_identifier){
             error("expect arguement name at line: "+std::to_string(lineN));
-          // ErrorQ("except arguement name", lineN); 
         }
         argName = IdentifierStr;
         getNextToken();
         for(int i=0;i<args.size();i++){
             if(args[i].first ==argName){
                 error("Duplicate parameter names at line: "+std::to_string(lineN));
-               // ErrorQ("", lineN);
-               // return nullptr;
             }
         }
         args.push_back(std::make_pair(argName,t));
@@ -93,18 +88,13 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
         return std::move(proto);
     }else if(CurTok != Token::left_brace){
         error("expect ; or { at line: "+std::to_string(lineN));
-       // ErrorQ("expect ; or {",lineN);
-       // return nullptr;
     }
-    Parser::setRetNumZero();
+
     std::unique_ptr<BlockAST> body = ParseBlock();
     if(body == nullptr){
         return nullptr;
     }
-    if(Parser::getReturnNum()==0 && !(returnType->getIsVoid())){
-        error("the function need return at line: "+std::to_string(lineN));
-       // ErrorQ("the function need return",lineN);
-    }
+
     std::unique_ptr<FunctionAST> f = std::make_unique<FunctionAST>(std::move(proto),std::move(body),line1);
     return std::move(f);
 }

@@ -27,9 +27,6 @@ std::unique_ptr<AssignAST> Parser::ParseAssign(std::string name){
     getNextToken(); //eat =
 
     std::unique_ptr<ExprAST> right = ParseExpr();
-    if(right == nullptr){
-        return nullptr;
-    }
 
     return std::make_unique<AssignAST>(std::move(left),std::move(right),line1);
 }
@@ -55,22 +52,6 @@ std::unique_ptr<CommandAST> Parser::ParseIdentifier(){
 /// return ::= return expression
 std::unique_ptr<ReturnAST> Parser::ParseReturn(){
 
-
-    /*
-      return a
-
-      if (x) then return
-      a = 5
-      -->  if (x) then { return (a = 5) }
-
-      -->
-      def void f(uint64 x) {
-        if (x) then { return void }
-        a = 5
-      }
-
-     */
-
     int line1 = lineN;
     if(CurTok != Token::tok_return)
         Bug("call ParseReturn, but no return",lineN);
@@ -78,14 +59,14 @@ std::unique_ptr<ReturnAST> Parser::ParseReturn(){
     getNextToken(); //eat return
 
     if (CurTok == Token::tok_void) {
-      Parser::addReturnNum(); // TODO: Obsolete?
+     // Parser::addReturnNum(); // TODO: Obsolete?
       return std::make_unique<ReturnAST>(nullptr,line1);
     } else {
       std::unique_ptr<ExprAST> value = ParseExpr();
       if(value==nullptr){
           return nullptr;
       }
-      Parser::addReturnNum(); // TODO: Obsolete?
+     // Parser::addReturnNum(); // TODO: Obsolete?
       return std::make_unique<ReturnAST>(std::move(value),line1);
     }
 }
@@ -100,13 +81,15 @@ std::unique_ptr<BlockAST> Parser::ParseBlock(){
     getNextToken(); //eat {
     std::vector<std::unique_ptr<CommandAST>> cmds;
     bool hasRet = false;
+    bool hasBreak = false;
     while(CurTok != Token::right_brace && CurTok!=Token::tok_eof){
         std::unique_ptr<CommandAST> cmd = ParseCommand();
-        if(cmd == nullptr)
-            return nullptr;
-        if(!hasRet){ // ignore the command after return
+
+        if(!hasRet && !hasBreak){ // ignore the command after return
             if(cmd->isRet())
                 hasRet = true;
+            else if(cmd->getType()==ASTType::breakT)
+                hasBreak = true;
             cmds.push_back(std::move(cmd));
         }
     }
@@ -118,7 +101,7 @@ std::unique_ptr<BlockAST> Parser::ParseBlock(){
     }
     getNextToken(); //eat }
 
-    return std::make_unique<BlockAST>(std::move(cmds),line1,hasRet);
+    return std::make_unique<BlockAST>(std::move(cmds),line1,hasRet,hasBreak);
 }
 
 /// if ::= if condition then cmds [else cmds]
@@ -132,19 +115,13 @@ std::unique_ptr<IfAST> Parser::ParseIf(){
     getNextToken(); //eat if
     
     std::unique_ptr<ExprAST> con = ParseExpr();
-    if(con == nullptr)
-        return nullptr;
     
     if(CurTok != Token::tok_then){
         error("expect then at line: "+std::to_string(lineN));
-       // ErrorQ("except then", lineN);
-       // return nullptr;
     }
     getNextToken(); //eat if
 
     std::unique_ptr<CommandAST> then = ParseCommand();
-    if(then == nullptr)
-        return nullptr;
 
     if(then->isRet())
         retNum++;
@@ -155,13 +132,14 @@ std::unique_ptr<IfAST> Parser::ParseIf(){
     else {
         getNextToken(); //eat else
         elseT = ParseCommand();
-        if(elseT == nullptr)
-            return nullptr;
     }
 
     if(elseT->isRet())
         retNum++;
-    return std::make_unique<IfAST>(std::move(con),std::move(then),std::move(elseT),line1,retNum==2);
+    bool isRet = then->isRet() && elseT->isRet();
+    bool isBreak = then->isBreak() && elseT->isBreak();
+    bool retOrBreak = (then->isRet() || then->isBreak()) && (elseT->isRet() || elseT->isBreak()); 
+    return std::make_unique<IfAST>(std::move(con),std::move(then),std::move(elseT),line1,isRet,isBreak,retOrBreak);
 }
 
 /// def ::= Type variableName [ = expression] 
@@ -223,40 +201,32 @@ std::unique_ptr<ForAST> Parser::ParseFor(){
     getNextToken(); //eat for
 
     std::unique_ptr<DefAST> start = ParseVariableDef(false);
-
     if(start == nullptr)
         return nullptr;
     
     if(CurTok != Token::comma){
         error("expect , at line: "+std::to_string(lineN));
-        //ErrorQ("except ,",lineN);
-        //return nullptr;
     }
-    getNextToken();
+    getNextToken(); //eat ,
 
     std::unique_ptr<ExprAST> cond = ParseExpr();
-    if(cond == nullptr)
-        return nullptr;
     
     if(CurTok != Token::comma){
         error("expect , at line: "+std::to_string(lineN));
-       // ErrorQ("except ,",lineN);
-       // return nullptr;
     }
-    getNextToken();
+    getNextToken(); //eat ,
 
-    long long step;
+    std::unique_ptr<NumberExprAST> step;
     if(CurTok != Token::tok_number)
-        step = 1;
+        step = std::make_unique<NumberExprAST>(1,lineN);
     else{
-        step = NumVal;
-        getNextToken(); //eat num
+        step = ParseNumberExpr();
     }
+
     std::unique_ptr<CommandAST> cmds = ParseCommand();
-    if(cmds==nullptr)
-        return nullptr;
-    
-    return std::make_unique<ForAST>(std::move(start),std::move(cond),step,std::move(cmds),line1);
+    if(cmds->isRet())
+        error("the command in for loop cannot be total return at line: "+std::to_string(lineN));
+    return std::make_unique<ForAST>(std::move(start),std::move(cond),std::move(step),std::move(cmds),line1,false);
 }
 
 /// while ::= while cond cmds
@@ -269,15 +239,24 @@ std::unique_ptr<WhileAST> Parser::ParseWhile(){
     getNextToken();
 
     std::unique_ptr<ExprAST> cond = ParseExpr();
-    if(cond == nullptr)
-        return nullptr;
+
     std::unique_ptr<CommandAST> cmds = ParseCommand();
-    if(cmds == nullptr)
-        return nullptr;
+
+    if(cmds->isRet())
+        error("the command in for loop cannot be total return at line: "+std::to_string(lineN));
 
     return std::make_unique<WhileAST>(std::move(cond),std::move(cmds),line1,cmds->isRet());
 }
 
+//break
+std::unique_ptr<BreakAST> Parser::ParseBreak(){
+    if(CurTok != Token::tok_break)
+        Bug("call ParseBreak, but no break",lineN);
+
+    getNextToken(); //eat break
+
+    return std::make_unique<BreakAST>(lineN);
+}
 std::unique_ptr<CommandAST> Parser::ParseCommand(){
 
     switch(CurTok){
@@ -298,6 +277,9 @@ std::unique_ptr<CommandAST> Parser::ParseCommand(){
         break;
     case Token::tok_while:
         return ParseWhile();
+        break;
+    case Token::tok_break:
+        return ParseBreak();
         break;
     default:
         if(isType())

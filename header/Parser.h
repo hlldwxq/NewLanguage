@@ -30,6 +30,9 @@
 #include <sstream>
 #include <fstream>
 #include "AST.h"
+#include "ASTCommand.h"
+#include "ASTStructure.h"
+#include "ASTExpr.h"
 
 /// this function is reminding me there is bug, but maybe I will not get error info
 /// the function need to be removed in the future
@@ -132,7 +135,7 @@ private:
 	QType* ParseType();
 	
 	//========Expression========================//
-	std::unique_ptr<NumberExprAST> ParseBoolConstantExpr();
+	std::unique_ptr<ConstantBoolAST> ParseBoolConstantExpr();
 	std::unique_ptr<NullExprAST> ParseNullExpr();
 	std::unique_ptr<NumberExprAST> ParseNumberExpr();
 	std::unique_ptr<CallExprAST> ParseCallExpr(std::string functionName);
@@ -154,7 +157,7 @@ private:
 	std::unique_ptr<ForAST> ParseFor();
 	std::unique_ptr<WhileAST> ParseWhile();
 	std::unique_ptr<CommandAST> ParseCommand();
-
+	std::unique_ptr<BreakAST> ParseBreak();
 	//==========structure========================//
 	std::unique_ptr<StructureAST> ParseProtoOrFunction();
 	std::unique_ptr<StructureAST> ParseStructure();
@@ -169,7 +172,7 @@ public:
 
 	Token getNextToken();
 	void Parse();
-	static void addReturnNum(){
+/*	static void addReturnNum(){
 		returnNum++;
 	}
 	static int getReturnNum(){
@@ -177,5 +180,5 @@ public:
 	}
 	static void setRetNumZero(){
 		returnNum = 0;
-	}
+	}*/
 };
