@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function fail() {
-  echo "ERROR: $1"
+  echo "ERROR ($FILE): $1"
   exit 1
 }
 function toUnix(){

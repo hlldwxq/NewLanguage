@@ -37,3 +37,10 @@ def uint64 testNewUint(uint64 a,uint64 s){
 
     return arr[a-1][a-1][a-1]
 }
+
+def void testNewOvf(uint64 n) {
+  uint128 nn = n
+  uint8* a=new uint8[nn]
+}
+
+

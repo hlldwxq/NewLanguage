@@ -227,9 +227,13 @@ void callError(std::string info, int line){
     ArgsV.push_back(globalStrPtr);
     ArgsV.push_back(lineN);
 
-    if (Function *F = dyn_cast<Function>(PrintFunc.getCallee())) {
-        Builder.CreateCall(F,ArgsV);
-    }
+    Function *F = dyn_cast<Function>(PrintFunc.getCallee());
+    assert(F);
+    Builder.CreateCall(F,ArgsV);
+
+//     if (Function *F = dyn_cast<Function>(PrintFunc.getCallee())) {
+//         Builder.CreateCall(F,ArgsV);
+//     }
 
     std::vector<llvm::Type*> exitargs;
     exitargs.push_back(qtype);

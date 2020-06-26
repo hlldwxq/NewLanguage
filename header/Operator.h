@@ -156,6 +156,7 @@ public:
     virtual void divisionDyCheck(QValue* left,QValue* right) = 0; //overflow and division 0
 
     virtual QValue* codegen(QValue* a, QValue* b) {
+        assert(a->getType()->compare(b->getType()));
         if(doCheck)
             OverFlowCheck(a,b);
         IntType* getSign = dynamic_cast<IntType*>(a->getType());

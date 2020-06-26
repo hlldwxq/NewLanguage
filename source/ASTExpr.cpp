@@ -128,13 +128,19 @@ QValue* BinaryExprAST::codegen(){
     
 }
 
-void intCastCheck(Type* qtype, unsigned length, Value* value, int line){
-    
+void intCastCheck(Type* qtype, Value* value, int line){
+    unsigned length = qtype->getIntegerBitWidth();
+
+    auto vtype = value->getType();
+
+    if (length >= vtype->getIntegerBitWidth()) return;
+
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
     
     // avoid overflow when the size of target platform is same with compile platform
-    unsigned long long maxSize = 2*((1UL<<(length-1))-1)+1;  //unsigned
-    llvm::Value* maxInt = ConstantInt::get(qtype, maxSize); //the max int on target platform
+    assert(sizeof(unsigned long long)*8 >= length);
+    unsigned long long maxSize = 2*((1ULL<<(length-1))-1)+1;  //unsigned
+    llvm::Value* maxInt = ConstantInt::get(vtype, maxSize); //the max int on target platform
     
     //compare
     Value* cmp = Builder.CreateICmpUGE(maxInt, value, "cmptmp");
@@ -156,18 +162,20 @@ QValue* NewExprAST::codegen(){
     // get the size of target platform
     llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
     Type* t = dataLayOut->getLargestLegalIntType(TheContext);
-    unsigned length = dataLayOut->getTypeSizeInBits(t).getFixedSize();
+    unsigned length = t->getIntegerBitWidth();
+//     dataLayOut->getTypeSizeInBits(t).getFixedSize();
+
     if(length==0)
         Bug("does not get datalayout",line);
     //cast arraysize
     Value* arraySize = (size->codegen())->getValue();
-    intCastCheck(t, length, arraySize,line);
+    intCastCheck(t, arraySize,line);
     arraySize = Builder.CreateIntCast(arraySize,t,false); 
     
 
     //cast mallocsize
     Value* mallocSize = ConstantExpr::getSizeOf(type->getElementType()->getLLVMType()); //the return type of getSizeOf is i64
-    intCastCheck(t, length, mallocSize,line);
+    intCastCheck(t, mallocSize,line);
     mallocSize = Builder.CreateIntCast(mallocSize,t,false); 
     
 

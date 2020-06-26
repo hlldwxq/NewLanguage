@@ -1,0 +1,71 @@
+# June 26
+
+TODOs:
+  Fix Overflow in compiler constant propagation
+    (- maybe use GMP library)
+    - does LLVM provide functions to compute with large numbers?
+      -> llvm/ADT/APInt.h
+
+  Fix Overflow in number parser
+    - must parse arbitrarily large numbers
+
+  Add Overflow check for uminus:
+    sint8 x=-128
+    sint8 y = -x # OVERFLOW
+
+  Free function.
+
+  overflow checks for memory
+    * array bounds checks (also optional)
+
+
+  ** At this point, we might have reached minimal viable product
+  ** What next?
+
+  literature review on programming languages (important for final report):
+    How does this project relate to others? To design ideas for PLs?
+    What would be useful features to add at this point?
+    -> possible starting points:
+      textbook on PLs,
+      modern PL, e.g. Rust, Java, Go, ...
+
+  print function
+    would make language self-contained enough for tests!
+    requires: string type
+    "easy" way: string = uint8*, and 'hardcode' printf with variable arguments (printf-command)
+      printf("foo %s %l", x,y)
+
+  implement a larger program, ideally
+    * does something useful
+    * is safety critical
+    * has suffered form overflow problems in the past
+
+  add more advanced features (?):
+    * struct type
+    * polymorphic types (templates) "vector<T>"
+
+
+
+  Avoid repeated global string data for error messages.
+    -> gets removed by compiler anyway.
+
+  Should overflow-check also return result of computation?
+    -> currently, result is computed twice
+    -> ad-hoc test on x86 and add revealed: optimizer removes superfluous addition!
+
+
+
+
+
+
+-------
+
+  what do we have:
+    - structure: functions, global vars
+    - control flow: while, break, for, if
+    - operations: malloc (with ovf check)
+    - arith: +,-,*,/, (optional overflow check), uminus (no ovf check yet)
+    - bitwise: &, |, ! (all bit sizes, and signs)
+    - compare: <, <=, >, >=,
+
+  Tests: lots of tests
