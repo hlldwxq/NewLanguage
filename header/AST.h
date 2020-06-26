@@ -158,7 +158,7 @@ private:
         case 128:
             break;
         default:
-            Bug("invalid int width",0);
+            Bug("invalid int width",width);
             exit(1);
       }
     }
@@ -394,7 +394,7 @@ public:
 };
 
 std::unique_ptr<Module>& getModule();
-void callError(Type* qtype,int line);
+void callError(std::string str,int line);
 void initCheck(std::string check);
 void initModule(std::string fileName);
 QValue* assignCast(QValue* varValue, QType* leftT);

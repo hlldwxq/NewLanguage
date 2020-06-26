@@ -136,8 +136,8 @@ class less_than : public CompareOperator{
 };  // <
 
 class ArithOperator : public BOperator {
+protected:
     int line;
-
 public:
     virtual bool isCompareOp(){
         return false;
@@ -153,6 +153,7 @@ public:
     virtual long long gen_constant(long long left, long long right) = 0;
     virtual void printAST() = 0;
     virtual Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right) = 0;
+    virtual void divisionDyCheck(QValue* left,QValue* right) = 0; //overflow and division 0
 
     virtual QValue* codegen(QValue* a, QValue* b) {
         if(doCheck)
@@ -170,37 +171,37 @@ public:
     }
 
     virtual void OverFlowCheck(QValue* left, QValue* right){
-    
-        std::vector<Type*> args_type;
-        args_type.push_back(left->getType()->getLLVMType()); 
-        args_type.push_back(right->getType()->getLLVMType());
-        
-        Function* overFlow = overFlowDeclare(args_type,dynamic_cast<IntType*>(left->getType())->getSigned());
-        if (!overFlow) return;
-        
-        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+        if(opType == Operators::division){
+            divisionDyCheck(left,right);
+        }else{
+            std::vector<Type*> args_type;
+            args_type.push_back(left->getType()->getLLVMType()); 
+            args_type.push_back(right->getType()->getLLVMType());
+            
+            Function* overFlow = overFlowDeclare(args_type,dynamic_cast<IntType*>(left->getType())->getSigned());
+            if (!overFlow) return;
+            
+            Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
-        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
-        Type* t = dataLayOut->getLargestLegalIntType(TheContext);
+            std::vector<llvm::Value*> fun_arguments;
+            fun_arguments.push_back(left->getValue()); 
+            fun_arguments.push_back(right->getValue());
 
-        std::vector<llvm::Value*> fun_arguments;
-        fun_arguments.push_back(left->getValue()); 
-        fun_arguments.push_back(right->getValue());
+            Value* checkCall = Builder.CreateCall(overFlow, fun_arguments, "overflowtmp");
+            Value* extractV = Builder.CreateExtractValue(checkCall,1);
 
-        Value* checkCall = Builder.CreateCall(overFlow, fun_arguments, "overflowtmp");
-        Value* extractV = Builder.CreateExtractValue(checkCall,1);
+            BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
+            BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
+            Builder.CreateCondBr(extractV, overflowBB, normalBB);
 
-        BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
-        BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
-        Builder.CreateCondBr(extractV, overflowBB, normalBB);
+            // overflow
+            Builder.SetInsertPoint(overflowBB);
+            callError("overflow",line);
+            overflowBB = Builder.GetInsertBlock();  
 
-        // overflow
-        Builder.SetInsertPoint(overflowBB);
-        callError(t,line);
-        overflowBB = Builder.GetInsertBlock();  
-
-        // normal
-        Builder.SetInsertPoint(normalBB);
+            // normal
+            Builder.SetInsertPoint(normalBB);
+        }
     }
 };
 
@@ -213,6 +214,7 @@ class plus : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
+    void divisionDyCheck(QValue* left,QValue* right){Bug("this is plus, only division need the function",line);}
     plus(int line):ArithOperator(Operators::plus,line){}
 };  // +
 
@@ -225,6 +227,7 @@ class minus : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
+    void divisionDyCheck(QValue* left,QValue* right){Bug("this is minus, only division need the function",line);}
     minus(int line):ArithOperator(Operators::minus,line){}
 };  // -
 
@@ -237,6 +240,7 @@ class star : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
+    void divisionDyCheck(QValue* left,QValue* right){Bug("this is star, only division need the function",line);}
     star(int line):ArithOperator(Operators::star,line){}
 };  // *
 
@@ -252,6 +256,7 @@ class division : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
+    void divisionDyCheck(QValue* left,QValue* right);
     division(int line):ArithOperator(Operators::division,line){}
 };  // /
 
@@ -264,6 +269,7 @@ class andT : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
+    void divisionDyCheck(QValue* left,QValue* right){Bug("this is and, only division need the function",line);}
     andT(int line):ArithOperator(Operators::andT,line){}
 };  // &
 
@@ -276,5 +282,6 @@ class orT : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
+    void divisionDyCheck(QValue* left,QValue* right){Bug("this is or, only division need the function",line);}
     orT(int line):ArithOperator(Operators::orT,line){}
 };  // |

@@ -57,6 +57,9 @@ public:
     long long getValue(){
         return value;
     }
+    void setNeg(){
+        value = -value;
+    }
     void printAST(int level=0);
     QValue* codegen();
 };

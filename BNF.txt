@@ -1,0 +1,58 @@
+Type := Type *
+|int8
+|int16
+|int32
+|int64
+|int128
+|int1
+
+// =======================================
+Expr := number
+| identifier [ Expr ]*
+| identifier ( Expr* ) 
+| true
+| false
+| null
+| Expr Boper Expr
+| Uoper Expr
+| new Type [ Expr ]
+
+// =======================================
+Command := VarDec
+| Assign
+| Ret
+| FuncCall
+| If 
+| For
+| While
+| Body
+| break
+
+VarDec := Type identifier VarDef
+VarDef := empty
+       | Expr
+
+Assign := identifier [ Expr ]* = Expr
+
+Ret := return Expr
+
+FuncCall := identifier ( Expr* )
+
+If := if Expr then Body (else Body)?
+
+For := for IntDec , Expr , number Body
+IntDec := int1|int8|int16|int32|int64|int128 identifier VarDef
+
+While := while Expr Body
+
+Body := Command
+:= { Command* }
+
+// =======================================
+Structure := VarDec
+:= FuncDef
+
+FuncDef := def RetType identifier ( (Type identifier)* ) Body
+RetType := void | Type
+
+S := Structure*

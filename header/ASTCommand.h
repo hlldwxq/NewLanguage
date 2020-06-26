@@ -79,6 +79,10 @@ public:
     bool isRetOrBreak(){
         return retOrBreak;
     }
+
+    bool isBreak(){
+        return retOrBreak;
+    }
 };
 
 ///forAST

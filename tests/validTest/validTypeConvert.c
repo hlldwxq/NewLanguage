@@ -60,7 +60,7 @@ unsigned long uReturnCallPara(unsigned int var);//arg1 65535 ~ 0
 int failed = 0;
 
 void check(char const *msg, int res) {
-  printf("%s: %d\n",msg, res);
+ // printf("%s: %d\n",msg, res);
   if (res != 1) ++failed;
 }
 
@@ -181,7 +181,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
       printf("ERROR: %d tests failed\n",failed);
       return 1;
     } else {
-      printf("OK: all tests passed\n");
+      printf("Success!\n");
       return 0;
     }
 

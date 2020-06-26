@@ -12,14 +12,14 @@ function do_test() {
   ./"$FILE" > ./"$LOG" 2>&1 || fail "$FILE: Failed"
 }
 
+function isSuccess(){
+  FILE=$1
+  REGEXP="Success!"
+
+  grep -q "$REGEXP" "$FILE" || fail "$FILE: Has error, do not pass the test"
+
+}
+
 for i in tests/validTest/*.out; do do_test "$i"; done
+for i in tests/validTest/*.log; do isSuccess "$i"; done
 
-
-
-# function doTest() {
-#
-#   if ./tests/validTest/validCodeTest | egrep -v ": 1$"; then
-#     echo "ERROR"
-#     exit 1
-#   fi
-# }

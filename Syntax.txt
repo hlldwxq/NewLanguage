@@ -1,6 +1,5 @@
 Type:
 	int1(bool)   int8   int16   int32   int64   int128
-
 	Type*   ( int8*  and  int8** )   // pointer 
 
 

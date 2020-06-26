@@ -44,10 +44,23 @@ public:
 
     bool addSymbol(std::string name , T* Alloca){
         if(symbolTable.size()==0) {printf("no scope"); exit(1);}
+
         std::map<std::string,const T*> &scope = symbolTable.back();
         if(scope.find(name) != scope.end()){
             return false; //cannot get the line number, thus ask codegen to emit error info
         }
+
+        std::map<std::string,const T*> &scope1 = symbolTable.front();
+        if(scope1.find(name) != scope1.end()){
+            return false; //cannot get the line number, thus ask codegen to emit error info
+        }
+
+        if(globalVariable.find(name) != globalVariable.end()){
+            return false; //cannot get the line number, thus ask codegen to emit error info
+        }
+
+
+
         scope[name] = Alloca;
         return true;
     }

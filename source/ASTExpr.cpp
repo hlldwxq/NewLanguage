@@ -7,9 +7,7 @@ const QAlloca* VariableAST::codegenLeft(){
     if(!Alloca){
         const QGlobalVariable* global = scope.findGlobalVar(name);
         if(!global){
-           // TheModule->print(outs(), nullptr);
-           // printf("%s\n",name.c_str());//<<std::endl;
-            error("invalid number when getting LLVM TYPE");
+            error("the variable has not been declared");
         }
 
         Alloca = new QAlloca(global->getType(),global->getGlobalVariable());
@@ -27,12 +25,10 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
         
         if(dynamic_cast<ConstantType*>(index->codegen()->getType())->getValue()<0){
             error("the index of array cannot be negative");
-            //return NULL;
         }
     }
     if(!left->getType()->getIsPointer()){
         error("left expression must be a pointer");
-        //return NULL;
     }
     
     Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
@@ -60,7 +56,7 @@ QValue* NumberExprAST::codegen(){
 }
 
 QValue* ConstantBoolAST::codegen(){
-    IntType* qtype = new IntType(false,b);
+    IntType* qtype = new IntType(false,1);
     llvm::Value* constInt = ConstantInt::get(qtype->getLLVMType(), b);
     return new QValue(qtype,constInt);
 }
@@ -73,8 +69,7 @@ QValue* UnaryExprAST::codegen(){
     }
     QValue* result = opCode->codegen(value);
     if(!result){
-        error("The data type after the unary operator does not meet the requirements");
-        //return NULL;
+        error("The data type after the unary operator nust be bool");
     }
     return result;
 }
@@ -149,7 +144,7 @@ void intCastCheck(Type* qtype, unsigned length, Value* value, int line){
 
     // overflow
 	Builder.SetInsertPoint(overFlowBB);
-    callError(qtype,line);
+    callError("overflow when casting the array size or malloc size in new expression",line);
 	overFlowBB = Builder.GetInsertBlock(); 
 
     //normal
@@ -162,7 +157,8 @@ QValue* NewExprAST::codegen(){
     llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
     Type* t = dataLayOut->getLargestLegalIntType(TheContext);
     unsigned length = dataLayOut->getTypeSizeInBits(t).getFixedSize();
-
+    if(length==0)
+        Bug("does not get datalayout",line);
     //cast arraysize
     Value* arraySize = (size->codegen())->getValue();
     intCastCheck(t, length, arraySize,line);
@@ -196,6 +192,9 @@ QValue* NullExprAST::codegen(){
 QValue* CallExprAST::codegen_internal(bool is_cmd) {
 
     const QFunction* call = scope.getFunction(functionName);
+    if(!call){
+        ExprAST::lerror("the function has not been declared");
+    }
     Function* func = call->getFunction();
     std::vector<QType*> argsType = call->getArgsType();
 

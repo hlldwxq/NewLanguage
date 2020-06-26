@@ -1,4 +1,4 @@
- 
+# EXPECT overflow
 def void usubOverFlow() {
   uint32 a = 21
   uint32 b = 22    

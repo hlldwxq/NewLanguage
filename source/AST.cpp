@@ -188,32 +188,47 @@ QValue* assignCast(QValue* varValue, QType* leftT){
     return varValue;
 }
 
-Constant* geti8StrVal(char const* str, Type* t, Twine const& name) {
-  
+Constant* geti8StrVal(char const* str, Type* t, std::string name) {
+    //error
+    //GlobalVariable* GVStr = TheModule->getGlobalVariable(name, true); //true allow internal global var
     Constant* strConstant = ConstantDataArray::getString(TheContext, str);
-    GlobalVariable* GVStr = new GlobalVariable(*(TheModule.get()), strConstant->getType(), true,
-                            GlobalValue::InternalLinkage, strConstant, name);
-
+    auto GVStr = TheModule->getOrInsertGlobal(name, strConstant->getType());
+   
+    Builder.CreateStore(strConstant, GVStr);
+    
     Constant* zero = Constant::getNullValue(t);
     Constant* indices[] = {zero, zero};
-    Constant* strVal = ConstantExpr::getGetElementPtr(GVStr->getValueType(),GVStr, indices, true);
-    //Value* strVal = Builder.CreateGEP(GlobalVariable->getValueType(),indices);
+    Constant* strVal = ConstantExpr::getGetElementPtr(/*GVStr->getValueType()*/strConstant->getType(),GVStr, indices, true);
     return strVal;
 }
 //call error and exit function when overflow
-void callError(Type* qtype,int line){
+void callError(std::string info, int line){
+
+    llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+    Type* qtype = dataLayOut->getLargestLegalIntType(TheContext);
 
     std::vector<llvm::Type*> args;
     args.push_back(Type::getInt8PtrTy(TheContext));
-    llvm::Type* returnT = llvm::Type::getVoidTy(TheContext);
+    args.push_back(qtype); //line number
+    llvm::Type* returnT = qtype; //return type
     FunctionType *FT = FunctionType::get(returnT,args,false);
-    FunctionCallee ErrorFunc = TheModule->getOrInsertFunction("perror", FT);
+    FunctionCallee PrintFunc = TheModule->getOrInsertFunction("printf", FT);
 
-    std::string str = "overflow at line: " + std::to_string(line) + "\n";
-    Constant *info = geti8StrVal(str.c_str(), qtype,"str");
+    std::string str = info + " at line: %d\n";
+    Constant *lineN = ConstantInt::get(qtype, line);
+    /*Constant *info1 = geti8StrVal(str.c_str(), qtype,"str");
+    std::vector<Value*> ArgsV;
+    ArgsV.push_back(info1);
+    ArgsV.push_back(lineN);
+    */
+    const char *str_ptr = str.c_str();
+    Value *globalStrPtr = Builder.CreateGlobalStringPtr(str_ptr);
+    std::vector<Value*> ArgsV;
+    ArgsV.push_back(globalStrPtr);
+    ArgsV.push_back(lineN);
 
-    if (Function *F = dyn_cast<Function>(ErrorFunc.getCallee())) {
-        Builder.CreateCall(F,info);
+    if (Function *F = dyn_cast<Function>(PrintFunc.getCallee())) {
+        Builder.CreateCall(F,ArgsV);
     }
 
     std::vector<llvm::Type*> exitargs;
@@ -257,23 +272,3 @@ llvm::Type* ReturnType::getLLVMType() const{
     }
     
 }
-
-/*
-bool judgeValidCond(std::unique_ptr<ExprAST> cond){
-    if( cond->getType() == ASTType::unary ){
-
-        UnaryExprAST* unary = dynamic_cast<UnaryExprAST*>(cond.get());
-        if(unary->getOperatorType()==Operators::minus)
-            return false;
-
-    }else if(cond->getType() == ASTType::binary){
-
-        BinaryExprAST* binary = dynamic_cast<BinaryExprAST*>(cond.get());
-        return binary->isCompareOp();
-
-    }
-    return true;
-}
-*/
-
-

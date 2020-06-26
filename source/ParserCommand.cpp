@@ -59,15 +59,14 @@ std::unique_ptr<ReturnAST> Parser::ParseReturn(){
     getNextToken(); //eat return
 
     if (CurTok == Token::tok_void) {
-     // Parser::addReturnNum(); // TODO: Obsolete?
+
       return std::make_unique<ReturnAST>(nullptr,line1);
+
     } else {
+
       std::unique_ptr<ExprAST> value = ParseExpr();
-      if(value==nullptr){
-          return nullptr;
-      }
-     // Parser::addReturnNum(); // TODO: Obsolete?
       return std::make_unique<ReturnAST>(std::move(value),line1);
+      
     }
 }
 
@@ -88,7 +87,7 @@ std::unique_ptr<BlockAST> Parser::ParseBlock(){
         if(!hasRet && !hasBreak){ // ignore the command after return
             if(cmd->isRet())
                 hasRet = true;
-            else if(cmd->getType()==ASTType::breakT)
+            else if(cmd->isBreak())
                 hasBreak = true;
             cmds.push_back(std::move(cmd));
         }
@@ -218,14 +217,21 @@ std::unique_ptr<ForAST> Parser::ParseFor(){
 
     std::unique_ptr<NumberExprAST> step;
     if(CurTok != Token::tok_number)
-        step = std::make_unique<NumberExprAST>(1,lineN);
+        if(CurTok != Token::minus){
+            step = std::make_unique<NumberExprAST>(1,lineN);
+        }else{
+            getNextToken();
+            step = ParseNumberExpr();
+            step->setNeg();
+        }
     else{
         step = ParseNumberExpr();
     }
 
     std::unique_ptr<CommandAST> cmds = ParseCommand();
-    if(cmds->isRet())
-        error("the command in for loop cannot be total return at line: "+std::to_string(lineN));
+    if(cmds->isRet()||cmds->isBreak())
+        error("the command in for loop cannot be total return or break at line: "+std::to_string(lineN));
+
     return std::make_unique<ForAST>(std::move(start),std::move(cond),std::move(step),std::move(cmds),line1,false);
 }
 
@@ -242,8 +248,8 @@ std::unique_ptr<WhileAST> Parser::ParseWhile(){
 
     std::unique_ptr<CommandAST> cmds = ParseCommand();
 
-    if(cmds->isRet())
-        error("the command in for loop cannot be total return at line: "+std::to_string(lineN));
+    if(cmds->isRet()||cmds->isBreak())
+        error("the command in while loop cannot be total return at line: "+std::to_string(lineN));
 
     return std::make_unique<WhileAST>(std::move(cond),std::move(cmds),line1,cmds->isRet());
 }

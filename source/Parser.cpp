@@ -6,9 +6,6 @@ void Bug(const char * info,int lineN){
 	fprintf(stderr, "There is Bug that need to be solved: %s , at %d\n" , info,lineN);
 	exit(1);
 }
-/*void ErrorQ(const char * info,int lineN){
-    std::cout<<info<<" "<<lineN<<std::endl;
-}*/
 
 void Parser::initPrecedence(){
     BinopPrecedence[Token::assignment] = 2;         // =
@@ -72,7 +69,7 @@ Token Parser::gettok(){
     // identifier: [a-zA-Z][a-zA-Z0-9]*
     if (isalpha(LastChar)){ //[a-zA-Z]
         IdentifierStr = LastChar;
-        while (isalnum((LastChar = getChar()))) //isalnum [a-zA-Z0-9]
+        while (isalnum((LastChar = getChar())) || LastChar=='_') //isalnum [a-zA-Z0-9]
             IdentifierStr += LastChar;
 
         if (IdentifierStr == "def")
@@ -138,13 +135,12 @@ Token Parser::gettok(){
         } while (isdigit(LastChar));
 
         if(isalpha(LastChar)){ // 5657t is unvalid
-            //printf("%s %d",NumStr.c_str(),LastChar);
             return Token::error_token;
         }
 
         //cover string to number
         NumVal = string2longlong(NumStr);
-        //if num is out of the range of target architecture, the result will be the maxnum
+        //if num is out of the range of compiler platform, the result will be the maxnum
 
         return Token::tok_number;
     }

@@ -8,7 +8,7 @@ void DefAST::codegenCommand(){
     QAlloca* allo = new QAlloca(type,Alloca);
 
     if(!scope.addSymbol(name,allo)){
-        CommandAST::lerror("repeated symbol");
+        CommandAST::lerror("repeated variable name");
     }
 
     QValue* init = value->codegen();
@@ -61,35 +61,7 @@ void ReturnAST::codegenCommand(){
 
       Builder.CreateRet(returnQv->getValue());
     }
-/*
-    const QAlloca* returnAlloca = scope.getReturnAlloca();
-    if(!returnAlloca){
-        lerror("The function does not need return value");
-    }
-    QValue* returnQv = value->codegen();
-    
-    returnQv = assignCast(returnQv,returnAlloca->getType());
-    if(!returnQv){
-        lerror("type cannot be converted");
-    }
 
-    Builder.createRet(returnQv->getValue());*/
-
-  /*
-    Value* store = Builder.CreateStore(returnQv->getValue(), returnAlloca->getAlloca());
-    if(!store){
-        Bug("failed store",0);
-    }
-
-    Function *f = Builder.GetInsertBlock()->getParent();
-    for(auto iter = f->getBasicBlockList().begin(); iter != f->getBasicBlockList().end();iter++)
-    {
-        BasicBlock &bb = *iter;
-        if(bb.getName().str() == "returnBB") {
-            Builder.CreateBr(&bb); //will not meet an error when there is no returnBB
-        }
-    }
-  */
 }
 
 void BlockAST::codegenCommand(){
@@ -108,15 +80,8 @@ void CallExprAST::codegenCommand(){
 }
 
 void IfAST::codegenCommand(){
-   // printf("if1\n");
+
     bool needAfterBr = !(isRet() || isBreak() || isRetOrBreak());
-   // printf("if2\n");
-    QValue* CondV = condition->codegen();
-    
-    CondV = assignCast(CondV,&IntType::bool_type);
-    if(!CondV){
-        lerror("type cannot be converted to Boolean");
-    }
 
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
@@ -125,42 +90,43 @@ void IfAST::codegenCommand(){
 	BasicBlock *ThenBB = BasicBlock::Create(TheContext, "then", TheFunction);
 	BasicBlock *ElseBB = BasicBlock::Create(TheContext, "else",TheFunction);
     BasicBlock *MergeBB = NULL;
-   // printf("if3\n");
+
     if(needAfterBr)
 	    MergeBB = BasicBlock::Create(TheContext, "afterIf",TheFunction);
-   // printf("if4\n");
-	Builder.CreateCondBr(CondV->getValue(), ThenBB, ElseBB);
-   // printf("if5\n");
-    // then
+
+    QValue *Cond = condition->codegen();
+    Cond = assignCast(Cond,&IntType::bool_type);
+    if(!Cond){
+        lerror("type cannot be converted to Boolean");
+    }
+	Builder.CreateCondBr(Cond->getValue(), ThenBB, ElseBB);
+
 	Builder.SetInsertPoint(ThenBB);
 	thenC->codegenCommand();
     if(!thenC->isRet() && !thenC->isBreak() && MergeBB!=NULL){ 
         Builder.CreateBr(MergeBB);
     }
-   // printf("if6\n");
+
 	ThenBB = Builder.GetInsertBlock();  // Codegen of 'Then' can change the current block.
-   // printf("if7\n");
-	// else
+
 	Builder.SetInsertPoint(ElseBB);
 	elseC->codegenCommand();
     if(!elseC->isRet() && !elseC->isBreak() && MergeBB!=NULL) {
         Builder.CreateBr(MergeBB);
     }
-   // printf("if8\n");
+
 	ElseBB = Builder.GetInsertBlock();
-   // printf("if9\n");
 
 	// merge
     if(MergeBB){
         Builder.SetInsertPoint(MergeBB);
     }
-    //printf("if10\n");
 }
 
 void ForAST::codegenCommand(){
 
-    if(isRet())
-        lerror("the command in for loop cannot be total return");
+    if(isRet()||isBreak())
+        lerror("the command in for loop cannot be total return or break");
 
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
 	
@@ -222,8 +188,8 @@ void ForAST::codegenCommand(){
 
 void WhileAST::codegenCommand(){
     
-    if(isRet())
-        lerror("the command in for loop cannot be total return");
+    if(isRet()||isBreak())
+        lerror("the command in for loop cannot be total return or break");
     
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
@@ -247,7 +213,7 @@ void WhileAST::codegenCommand(){
 	ConBB = Builder.GetInsertBlock();
 
 	// Emit body block.
-//	TheFunction->getBasicBlockList().push_back(BodyBB);
+    //	TheFunction->getBasicBlockList().push_back(BodyBB);
 	Builder.SetInsertPoint(BodyBB);
 
 	body->codegenCommand();
@@ -256,7 +222,7 @@ void WhileAST::codegenCommand(){
 	Builder.CreateBr(ConBB);
 
 	// Emit after block.
-//	TheFunction->getBasicBlockList().push_back(AfterBB);
+    //	TheFunction->getBasicBlockList().push_back(AfterBB);
 	Builder.SetInsertPoint(AfterBB);
     scope.setBreakBB(NULL);
 }

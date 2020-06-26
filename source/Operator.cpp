@@ -32,6 +32,54 @@ Function* star::overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
     return overFlow;
 }
 
+void division::divisionDyCheck(QValue* left,QValue* right){
+    Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+    // check div 0
+    BasicBlock *div0BB = BasicBlock::Create(TheContext, "divsion0", TheFunction);
+    BasicBlock *divnormalBB = BasicBlock::Create(TheContext, "divnormal",TheFunction);
+
+    llvm::Value* zero = ConstantInt::get(right->getType()->getLLVMType(), 0);
+    llvm::Value* ifDivZero = Builder.CreateICmpEQ(right->getValue(), zero, "cmptmp");
+    Builder.CreateCondBr(ifDivZero, div0BB, divnormalBB);
+
+    // div 0
+    Builder.SetInsertPoint(div0BB);
+    callError("division zero",line);
+    div0BB = Builder.GetInsertBlock();  
+
+    // normal
+    Builder.SetInsertPoint(divnormalBB);
+    //check overflow
+    IntType* leftT = dynamic_cast<IntType*>(left->getType());
+    if(leftT->getSigned()==false){
+        return;
+    }
+
+    BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
+    BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
+    
+    // check if right is -1
+    llvm::Value* negOne = ConstantInt::get(right->getType()->getLLVMType(), -1);
+    llvm::Value* ifDivOne = Builder.CreateICmpEQ(right->getValue(), negOne, "cmptmp");
+
+    // check if left is the min
+    long long minSize = -(1L<<(leftT->getWidth()-1));
+    llvm::Value* negMin = ConstantInt::get(right->getType()->getLLVMType(), minSize);
+    llvm::Value* ifMin = Builder.CreateICmpEQ(left->getValue(), negMin, "cmptmp");
+
+    llvm::Value* isOverFlow = Builder.CreateAnd(ifDivOne,ifMin);
+    Builder.CreateCondBr(isOverFlow, overflowBB, normalBB);
+
+    // div 0
+    Builder.SetInsertPoint(overflowBB);
+    callError("overflow",line);
+    overflowBB = Builder.GetInsertBlock();  
+
+    // normal
+    Builder.SetInsertPoint(normalBB);
+}
+
 Function* division::overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
     return NULL;
 }

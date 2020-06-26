@@ -29,7 +29,7 @@ void PrototypeAST::codegenStructure(){
 
     bool success = scope.addFunction(Name,functionQ);
     if(!success){
-        error("the function has been declared");
+        lerror("the function has been declared");
     }
 }
 
@@ -40,80 +40,40 @@ void FunctionAST::codegenStructure(){
     auto &P = *Proto;
 
     BasicBlock *BB = BasicBlock::Create(TheContext, "entry", function);
-
-    /*
-    BasicBlock *returnBB = NULL;
-    if(!P.getReturnType()->getIsVoid()){
-        if(Body->isRet() && Parser::getReturnNum()>1){ 
-            //the last instruction is return and it is the only return
-            returnBB = BasicBlock::Create(TheContext, "returnBB", function);
-        }
-    }
-    */
     
 	Builder.SetInsertPoint(BB);
-
     scope.addScope();
-   // printf("func1\n");
+
     scope.setRetType(P.getReturnType());
-   // printf("func2\n");
-//     llvm::AllocaInst* retAlloca;
-//     if(!P.getReturnType()->getIsVoid()){
-//         retAlloca = Builder.CreateAlloca(P.getReturnType()->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1));
-//         scope.setReturnAlloca(new QAlloca(P.getReturnType()->getType(),retAlloca));
-//        // scope.addSymbol("return",new QAlloca(P.getReturnType()->getType(),retAlloca));
-//     }
 
     std::vector<std::pair<std::string,QType*>> args = P.getArgs();
-   // printf("func2.5\n");
+
     int i=0;
     //args
     for(auto &Arg : function->args()){
         std::string name = args[i].first;
-       // printf("func2.61\n");
         QType* t = args[i].second;
-       // printf("func2.62\n"); 
-        Type* y = t->getLLVMType();
-       // printf("func2.621\n");
-        Value* v =ConstantInt::get(Type::getInt32Ty(TheContext),1);
-      //  printf("func2.622\n");
+
         llvm::AllocaInst* Alloca = Builder.CreateAlloca(t->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
-      //  printf("func2.63\n");
+
         QAlloca* allo = new QAlloca(t, Alloca);
-      //  printf("func2.64\n");
+        //QAlloca* allo = new QAlloca(t,&Arg);
         if(!scope.addSymbol(name,allo)){
             error("the identifier has been declared");
         }
-      //  printf("func2.7\n");
+
         Builder.CreateStore(&Arg, Alloca);
         i++;
     }
-   // printf("func3\n");
+
     Body->codegenCommand();
-   // printf("func4\n");
+
     if (!Body->isRet()) {
       if (!P.getReturnType()->getIsVoid()) error("non-void function needs return");
       Builder.CreateRetVoid();
     }
-   // printf("func5\n");
-    scope.removeScope();
-  //  printf("func6\n");
 
-//     if(returnBB != NULL){
-//         //make sure the returnBB at the end of func
-//         returnBB->moveAfter(&(function->getBasicBlockList().back()));
-//         Builder.SetInsertPoint(returnBB);
-//     }
-//
-//     if(P.getReturnType()->getIsVoid()){
-//         Builder.CreateRetVoid();
-//     }
-//     else{
-//         llvm::Value* retValue = Builder.CreateLoad(retAlloca);
-// 		Builder.CreateRet(retValue);
-//     }
-//
-//     scope.removeScope();
+    scope.removeScope();
     
 }
 
