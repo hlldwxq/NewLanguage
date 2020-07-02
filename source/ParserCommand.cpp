@@ -2,6 +2,18 @@
 
 //================Commands===============//
 
+/// free ::= free expr
+std::unique_ptr<FreeAST> Parser::ParseFree(){
+    int line1 = lineN;
+    if(CurTok != Token::tok_free)
+        Bug("call ParseFree, but no free",lineN);
+
+    getNextToken(); //eat return
+    std::unique_ptr<ExprAST> ptr = ParseExpr();
+    return std::make_unique<FreeAST>(std::move(ptr),line1);
+
+}
+
 /// assign ::= leftvalue = expression
 std::unique_ptr<AssignAST> Parser::ParseAssign(std::string name){
 
@@ -164,7 +176,7 @@ std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global=false){
         std::unique_ptr<ExprAST> value;
         if(CurTok != Token::assignment){
             //default value
-            value = std::make_unique<NumberExprAST>(0,line1);
+            value = std::make_unique<NumberExprAST>("0",line1);
         }
         else{
             getNextToken(); //eat =
@@ -216,14 +228,27 @@ std::unique_ptr<ForAST> Parser::ParseFor(){
     getNextToken(); //eat ,
 
     std::unique_ptr<NumberExprAST> step;
-    if(CurTok != Token::tok_number)
-        if(CurTok != Token::minus){
-            step = std::make_unique<NumberExprAST>(1,lineN);
-        }else{
+    if(CurTok != Token::tok_number){
+        if(CurTok==Token::minus){
+            getNextToken(); //eat -
+            if(CurTok != Token::tok_number){
+                error("unexpected number at for step at line: "+std::to_string(lineN));
+            }
+            std::string num = NumStr;
             getNextToken();
-            step = ParseNumberExpr();
-            step->setNeg();
+            if(num == "0"){
+                error("-0 is invalid at line: "+std::to_string(lineN));
+            }
+            if(num[0]=='+')
+                num[0] = '-';
+            else
+                num[0] = '+';
+            
+            step = std::make_unique<NumberExprAST>(num,lineN);
+        }else{
+            step = std::make_unique<NumberExprAST>("+1",lineN);
         }
+    }
     else{
         step = ParseNumberExpr();
     }
@@ -263,6 +288,7 @@ std::unique_ptr<BreakAST> Parser::ParseBreak(){
 
     return std::make_unique<BreakAST>(lineN);
 }
+
 std::unique_ptr<CommandAST> Parser::ParseCommand(){
 
     switch(CurTok){
@@ -287,11 +313,16 @@ std::unique_ptr<CommandAST> Parser::ParseCommand(){
     case Token::tok_break:
         return ParseBreak();
         break;
+    case Token::tok_free:
+        return ParseFree();
+        break;
     default:
         if(isType())
-        {   return ParseVariableDef(false);}
-        else
         {   
+            return ParseVariableDef(false);
+        } else
+        {   
+            //std::cout<<CurTok<<std::endl;
             error("unexpect command at line: "+std::to_string(lineN));
            // ErrorQ("unexpected Command", lineN);
            // return nullptr;

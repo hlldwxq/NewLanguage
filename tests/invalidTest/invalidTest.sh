@@ -9,7 +9,7 @@ function fail() {
 function do_test() {
   FILE=$1
   LOG="$FILE.log"
-  # dos2unix $FILE   # if ther is problem because of different OS, use this command
+  dos2unix $FILE   # if ther is problem because of different OS, use this command
 
   REGEXP="$(grep '^ *# EXPECT ' $FILE | sed -re 's/^ *# EXPECT //')"
 

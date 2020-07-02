@@ -1,12 +1,8 @@
 #include <stdio.h>
 
-bool test1();
-bool test2();
-
-bool fail=false;
-
-void check(bool v,char const *msg) {
-  if (!v) {printf("ERROR: Test %s failed"); fail=1;}
+int fail = 0;
+void check(int v,char const *msg) {
+  if (!v) {printf("ERROR: Test %s failed",msg); fail=1;}
 }
 
 

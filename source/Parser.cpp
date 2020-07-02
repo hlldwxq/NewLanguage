@@ -1,7 +1,5 @@
 #include "../header/Parser.h"
 
-int Parser::returnNum;
-
 void Bug(const char * info,int lineN){
 	fprintf(stderr, "There is Bug that need to be solved: %s , at %d\n" , info,lineN);
 	exit(1);
@@ -92,6 +90,8 @@ Token Parser::gettok(){
             return Token::tok_break;
         if(IdentifierStr == "new")
             return Token::tok_new;
+        if(IdentifierStr == "free")
+            return Token::tok_free;
         if(IdentifierStr == "null")
             return Token::tok_null;
         if(IdentifierStr == "sint1")
@@ -125,22 +125,44 @@ Token Parser::gettok(){
         return Token::tok_identifier;
     }
 
+   /* isPos = true;
+    if(LastChar=='-'){
+        LastChar = getChar();
+        if(isdigit(LastChar)){
+            isPos = false;
+        }else{
+            return Token::minus;
+        }
+    }*/
     // Number: [0-9]+
     if (isdigit(LastChar)){ 
-        std::string NumStr;
+        NumStr = "";
         do
         {
             NumStr += LastChar;
             LastChar = getChar();
         } while (isdigit(LastChar));
 
-        if(isalpha(LastChar)){ // 5657t is unvalid
+        if(isalpha(LastChar)){ 
             return Token::error_token;
         }
 
-        //cover string to number
-        NumVal = string2longlong(NumStr);
-        //if num is out of the range of compiler platform, the result will be the maxnum
+        while(NumStr[0] == '0'){
+            if(NumStr.size()>1)
+                NumStr.erase(0,1);
+            else 
+                break;
+        }
+        if(NumStr!="0"){
+            //if(isPos)
+                NumStr = '+'+NumStr;
+            //else
+            //    NumStr = '-'+NumStr;    
+        }
+
+        if(getBitOfInt(NumStr,false)<=0){
+            error("invalid number because it is too big or too small at line: "+std::to_string(lineN));
+        }
 
         return Token::tok_number;
     }
@@ -252,7 +274,6 @@ Token Parser::gettok(){
     case EOF:
         return Token::tok_eof;
     default:
-        //printf("lalala%d",LastChar);
         return Token::error_token;
     }
 
@@ -261,7 +282,6 @@ Token Parser::gettok(){
         return Token::tok_eof;
 
     // other symbol return error
-    //printf("lalala333%d",LastChar);
     return Token::error_token;
 }
 
@@ -271,7 +291,6 @@ Token Parser::getNextToken(){
         error("unvalid character or word");
         //exit(1);
     } 
-    // printf( "Now Token: line %d -- %d\n",lineN, static_cast<int>(CurTok));
 
     return CurTok;
 }
@@ -373,7 +392,7 @@ void Parser::Parse(){
     while(CurTok != Token::tok_eof){
         std::unique_ptr<StructureAST> structure = ParseStructure();
         if(structure != nullptr){
-            //structure->printAST();
+           // structure->printAST();
             structure->codegenStructure();
         }else{
             exit(0);

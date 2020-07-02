@@ -13,24 +13,57 @@ const QAlloca* VariableAST::codegenLeft(){
         Alloca = new QAlloca(global->getType(),global->getGlobalVariable());
 
     }
+
     return Alloca;
 }
 
 const QAlloca* ArrayIndexExprAST::codegenLeft(){
 
     QValue* left = pointer->codegen();
-    Value* arrIndex = index->codegen()->getValue();
+    std::cout<<"array index: "<<left->getValue()<<std::endl;
+    QValue* arrI = index->codegen();
+    Value* arrIndex = arrI->getValue();
 	
-    if(index->codegen()->getType()->isConstant()){
-        
-        if(dynamic_cast<ConstantType*>(index->codegen()->getType())->getValue()<0){
+    if(arrI->getType()->isConstant()){
+        std::string ind = dynamic_cast<ConstantType*>(arrI->getType())->getValue();
+        if(ind[0]=='-'){
             error("the index of array cannot be negative");
         }
     }
     if(!left->getType()->getIsPointer()){
         error("left expression must be a pointer");
     }
-    
+    if(doCheck){
+        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+        const QValue* maxSize = scope.getArraySize(left->getValue());
+        assert(maxSize!=NULL);
+        llvm::Value* arrSize = maxSize->getValue();
+        
+        //type convert
+        if(!(maxSize->getType()->compare(arrI->getType()))){
+            const IntType* sizeT = dynamic_cast<const IntType*>(maxSize->getType());
+            const IntType* arrT = dynamic_cast<const IntType*>(arrI->getType());
+            if(sizeT->getWidth()>arrT->getWidth()){
+                arrSize = Builder.CreateIntCast(arrSize, sizeT->getLLVMType(),false);
+            }else{
+                arrIndex = Builder.CreateIntCast(arrIndex, arrT->getLLVMType(),false);
+            }
+        }
+
+        Value* cmp = Builder.CreateICmpUGT(arrIndex,arrSize, "cmptmp");
+        BasicBlock *outBoundBB = BasicBlock::Create(TheContext, "outBound", TheFunction);
+        BasicBlock *notOutBB = BasicBlock::Create(TheContext, "indexNormal",TheFunction);
+        Builder.CreateCondBr(cmp, notOutBB, outBoundBB);
+
+        // overflow
+        Builder.SetInsertPoint(outBoundBB);
+        callError("the array is out of the bound",line);
+        outBoundBB = Builder.GetInsertBlock(); 
+
+        //normal
+        Builder.SetInsertPoint(notOutBB);
+    }
     Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
     
     PointType* pt = dynamic_cast<PointType*>(left->getType());
@@ -50,8 +83,11 @@ QValue* LeftValueAST::codegen() {
 }
 
 QValue* NumberExprAST::codegen(){
-    ConstantType* qtype = new ConstantType(value);
-    llvm::Value* constInt =  ConstantInt::get(qtype->getLLVMType(), value);
+    ConstantType* qtype = new ConstantType(value,isPos);
+    //llvm::Value* constInt =  ConstantInt::get(qtype->getLLVMType(), value);
+
+    int bit = getBitOfInt(value, true); 
+    llvm::Value* constInt = ConstantInt::get(TheContext,llvm::APInt(bit, value, 10));
     return new QValue(qtype,constInt);
 }
 
@@ -129,18 +165,19 @@ QValue* BinaryExprAST::codegen(){
 }
 
 void intCastCheck(Type* qtype, Value* value, int line){
+    
     unsigned length = qtype->getIntegerBitWidth();
-
-    auto vtype = value->getType();
-
-    if (length >= vtype->getIntegerBitWidth()) return;
+    llvm::Type* vtype = value->getType();
+    if (length >= vtype->getIntegerBitWidth()) {
+        return;
+    }
 
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
     
     // avoid overflow when the size of target platform is same with compile platform
-    assert(sizeof(unsigned long long)*8 >= length);
-    unsigned long long maxSize = 2*((1ULL<<(length-1))-1)+1;  //unsigned
-    llvm::Value* maxInt = ConstantInt::get(vtype, maxSize); //the max int on target platform
+    //unsigned long long maxSize = 2*((1ULL<<(length-1))-1)+1;  //unsigned
+    assert(sizeof(unsigned long long)*8 >= length);    
+    llvm::Value* maxInt = Builder.CreateIntCast(ConstantInt::get(TheContext, APInt::getMaxValue(length)),vtype,false);
     
     //compare
     Value* cmp = Builder.CreateICmpUGE(maxInt, value, "cmptmp");
@@ -163,7 +200,7 @@ QValue* NewExprAST::codegen(){
     llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
     Type* t = dataLayOut->getLargestLegalIntType(TheContext);
     unsigned length = t->getIntegerBitWidth();
-//     dataLayOut->getTypeSizeInBits(t).getFixedSize();
+    // dataLayOut->getTypeSizeInBits(t).getFixedSize();
 
     if(length==0)
         Bug("does not get datalayout",line);
@@ -171,7 +208,7 @@ QValue* NewExprAST::codegen(){
     Value* arraySize = (size->codegen())->getValue();
     intCastCheck(t, arraySize,line);
     arraySize = Builder.CreateIntCast(arraySize,t,false); 
-    
+
 
     //cast mallocsize
     Value* mallocSize = ConstantExpr::getSizeOf(type->getElementType()->getLLVMType()); //the return type of getSizeOf is i64
@@ -188,7 +225,8 @@ QValue* NewExprAST::codegen(){
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t, type->getElementType()->getLLVMType(), mallocSize,arraySize,nullptr,"");
     
     Value* result = Builder.Insert(var_malloc);
-    return new QValue(type,result); // FIXME Type is pointerType(type)
+    type->setArraySize(arraySize);   //record the size of new
+    return new QValue(type,result); 
 }
 
 QValue* NullExprAST::codegen(){

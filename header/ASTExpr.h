@@ -48,17 +48,24 @@ public:
 
 // Constant Number
 class NumberExprAST : public ExprAST{
-    long long value;
-    // IntegerType ty  --> 7384213U64  7384213S64
+    std::string value;
+    bool isPos;
 public:
-    NumberExprAST(long long val,int line1):ExprAST(ASTType::number,line1){
+    NumberExprAST(std::string val, int line1):ExprAST(ASTType::number,line1){
         value = val;
+        if(val=="0"){
+            isPos = true;
+        }else if(val[0]=='+'){
+            isPos = true;
+        }else{
+            isPos = false;
+        }
     }
-    long long getValue(){
+    std::string getValue(){
         return value;
     }
-    void setNeg(){
-        value = -value;
+    bool getIsPos(){
+        return isPos;
     }
     void printAST(int level=0);
     QValue* codegen();
@@ -164,7 +171,9 @@ public:
     QType* getType(){
         return type;
     }
-
+    ExprAST* getSizePtr(){
+        return size.get();
+    }
     void printAST(int level=0);
     QValue* codegen();
 };

@@ -9,7 +9,93 @@ IRBuilder<> Builder(TheContext);
 std::unique_ptr<Module> TheModule;
 std::unique_ptr<TargetMachine> TM;
 bool doCheck;
-Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
+Scope<QAlloca,QFunction,QGlobalVariable,ReturnType,QValue> scope;
+
+std::map<int,std::string> maxIntSignedValue;
+std::map<int,std::string> minIntSignedValue;
+std::map<int,std::string> maxIntUnSignedValue;
+std::map<int,std::string> minIntUnSignedValue;
+
+void initIntValueStr(){
+    maxIntSignedValue.insert(std::pair<int,std::string>(8,"127"));
+    maxIntSignedValue.insert(std::pair<int,std::string>(16,"32767"));
+    maxIntSignedValue.insert(std::pair<int,std::string>(32,"2147483647"));
+    maxIntSignedValue.insert(std::pair<int,std::string>(64,"9223372036854775807"));
+    //maxIntSignedValue.insert(std::pair<int,std::string>(64,"9223372036854775807‬"));
+    maxIntSignedValue.insert(std::pair<int,std::string>(128,"175642133179605998668418774123684105727"));
+
+    minIntSignedValue.insert(std::pair<int,std::string>(8,"128"));
+    minIntSignedValue.insert(std::pair<int,std::string>(16,"32768"));
+    minIntSignedValue.insert(std::pair<int,std::string>(32,"2147483648"));
+    minIntSignedValue.insert(std::pair<int,std::string>(64,"9223372036854775808"));
+    minIntSignedValue.insert(std::pair<int,std::string>(128,"175642133179605998668418774123684105728"));
+
+    maxIntUnSignedValue.insert(std::pair<int,std::string>(8,"255"));
+    maxIntUnSignedValue.insert(std::pair<int,std::string>(16,"65535"));
+    maxIntUnSignedValue.insert(std::pair<int,std::string>(32,"4294967295"));
+    maxIntUnSignedValue.insert(std::pair<int,std::string>(64,"18446744073709551615"));
+    maxIntUnSignedValue.insert(std::pair<int,std::string>(128,"340282366920938463463374607431768211455"));
+
+    minIntUnSignedValue.insert(std::pair<int,std::string>(8,"256"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(16,"65536"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(32,"4294967296"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(64,"18446744073709551616"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(128,"340282366920938463463374607431768211456"));
+}
+
+int getBit(std::map<int,std::string> valueMap, std::string value){
+    int bit = 8;
+    std::string maxValue;
+
+    while( bit <= 128 ){
+        maxValue = valueMap[bit];
+        
+        if( value.size() > maxValue.size() ){
+
+            bit *= 2;
+        }else if( value.size() < maxValue.size() ){
+            return bit;
+        }else if( value.size() == maxValue.size() ){
+            for(int i=0;i<value.size();i++){
+                if(maxValue[i]<value[i]){
+                    bit*=2;
+                    break;
+                }
+                if(maxValue[i]>value[i]){
+                    return bit;
+                }
+                if(i==value.size()-1 && maxValue[i]==value[i]){
+                    return bit;
+                }
+            }
+        }
+    }
+    if(bit>128)
+        return -1;
+    else
+        return bit;
+    
+}
+
+int getBitOfInt(std::string value/*, bool isPos*/, bool isSigned){
+    
+    if(maxIntSignedValue.empty()){
+        initIntValueStr();
+    }
+    if(value=="0")
+        return 8;
+    bool isPos = (value[0]=='+');
+    value.erase(0,1);
+    if( isPos && isSigned ){   //有符号正数
+        return getBit(maxIntSignedValue,value);
+    }else if( isPos && !isSigned){   //无符号正数
+        return getBit(maxIntUnSignedValue,value);
+    }else if( !isPos && isSigned){   //有符号负数
+        return getBit(minIntSignedValue,value);
+    }else{  //无符号负数
+        return getBit(minIntUnSignedValue,value);
+    }
+}
 
 [[noreturn]] void error(std::string msg) {
     throw error_e(msg);
@@ -124,17 +210,19 @@ llvm::Constant* alignConst(long long value, QType* type){
 QValue* adjustSign(QValue* num, bool isSigned){
     ConstantType* type = dynamic_cast<ConstantType*>(num->getType());
     if(isSigned==false){
-        if(type->getValue()<0){
+        if(type->getValue()[0]=='-'){
+           // printf("unsigned and neg\n");
             return NULL;
         }
     }
-    int width = getSuitableWidth(type->getValue(),isSigned);
-    if(width==0){
+    int width = getBitOfInt(type->getValue(),isSigned);
+  //  printf("width %d\n",width);
+    if(width<=0){
         return NULL;
     }
     IntType* t = new IntType(isSigned,width);
-
-    return new QValue(t,ConstantInt::get(t->getLLVMType(),type->getValue()));
+    llvm::Value* constInt = ConstantInt::get(TheContext,llvm::APInt(width, type->getValue(), 10));
+    return new QValue(t,constInt);
 }
 
 QValue* upCast(QValue* qv, IntType* type){
@@ -259,13 +347,11 @@ llvm::PointerType* PointType::getLLVMType() const{
 }
 
 llvm::Type* ConstantType::getLLVMType() const{
-    int initSize = getSuitableWidth(value,true);
-    if(initSize==0){
-        error("invalid number when getting LLVM TYPE1");
+    int initSize = getBitOfInt(value,true);
+    if(initSize<=0){
+        error("invalid number when getting TYPE: "+ value);
     }
-
     return (new IntType(true,initSize))->getLLVMType();
-
 }
 
 llvm::Type* ReturnType::getLLVMType() const{

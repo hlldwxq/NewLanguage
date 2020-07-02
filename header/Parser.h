@@ -62,6 +62,7 @@ enum class Token
 
 	//array
 	tok_new ,
+	tok_free,
     tok_null,
 
 	//type
@@ -111,7 +112,8 @@ enum class Token
 
 class Parser {
 private:
-	static int returnNum; 
+
+
 	std::string fileName;
 	std::string fileStr;
 	int lineN = 1;
@@ -121,7 +123,8 @@ private:
 	long long NumVal;		   // Filled in if tok_number
 							   // although -9 will be regarded as two tokens, - and 9
 							   // I still use signed num instead of unsigned 
-	
+	std::string NumStr;
+	//bool isPos;
 	unsigned long retNumForCurrfunc = 0;
 	std::map<Token, int> BinopPrecedence;
 
@@ -134,6 +137,7 @@ private:
 	bool isType();
 	QType* ParseType();
 	
+
 	//========Expression========================//
 	std::unique_ptr<ConstantBoolAST> ParseBoolConstantExpr();
 	std::unique_ptr<NullExprAST> ParseNullExpr();
@@ -158,6 +162,7 @@ private:
 	std::unique_ptr<WhileAST> ParseWhile();
 	std::unique_ptr<CommandAST> ParseCommand();
 	std::unique_ptr<BreakAST> ParseBreak();
+	std::unique_ptr<FreeAST> ParseFree();
 	//==========structure========================//
 	std::unique_ptr<StructureAST> ParseProtoOrFunction();
 	std::unique_ptr<StructureAST> ParseStructure();
@@ -172,13 +177,5 @@ public:
 
 	Token getNextToken();
 	void Parse();
-/*	static void addReturnNum(){
-		returnNum++;
-	}
-	static int getReturnNum(){
-		return returnNum;
-	}
-	static void setRetNumZero(){
-		returnNum = 0;
-	}*/
+
 };

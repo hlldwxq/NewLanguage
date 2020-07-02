@@ -15,7 +15,8 @@ def sint64 for_binary_pos(sint64 a){
         return result 
     }  
     else{
-        for sint64 i=0 , i<-a , 1
+        sint64 x = -a
+        for sint64 i=-x , i<0 , 1
             result = result - 1
         return result 
     }  

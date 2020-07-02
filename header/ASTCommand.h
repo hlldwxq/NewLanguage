@@ -2,6 +2,15 @@
 #include "AST.h"
 #include "ASTExpr.h"
 
+class FreeAST : public CommandAST{
+    std::unique_ptr<ExprAST> ptr;
+    public:
+    FreeAST(std::unique_ptr<ExprAST> p,int line):CommandAST(ASTType::freeT,line,false){
+        ptr = std::move(p);
+    }
+    void codegenCommand();
+};
+
 class DefAST : public CommandAST, public StructureAST{
 protected:
     bool global;

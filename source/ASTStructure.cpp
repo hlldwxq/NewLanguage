@@ -114,17 +114,17 @@ void VarDefAST::codegenStructure(){
     }
 
     ConstantType* numType = dynamic_cast<ConstantType*>(qvalue->getType());
-    if(numType->getValue() != 0){
+    if(numType->getValue() != "0"){
         IntType* leftType = dynamic_cast<IntType*>(type);
-        if(leftType->getSigned() && numType->getValue()<0){
+        if(leftType->getSigned() && numType->getValue()[0]=='-'){
             CommandAST::lerror("cannot assign a negative value to an unsigned variable");
         }
-        if(getSuitableWidth(numType->getValue(),leftType->getSigned()) > leftType->getWidth()){
+        if(getBitOfInt(numType->getValue(),leftType->getSigned()) > leftType->getWidth()){
             CommandAST::lerror("type cannot be converted");
         }
         
         Function* F = globalInitFunc();
-        llvm::Value* rightV = ConstantInt::get(leftType->getLLVMType(),numType->getValue()); 
+        llvm::Value* rightV = ConstantInt::get(TheContext,llvm::APInt(leftType->getWidth(), numType->getValue(), 10)); 
         Builder.CreateStore(rightV, globalV);
         Builder.CreateRetVoid();
         std::vector<QType*> argsT;

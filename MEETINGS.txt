@@ -1,5 +1,14 @@
 # June 26
 
+div constant calculate
+andT  orT
+
+Free function.
+
+overflow checks for memory
+  * array bounds checks (also optional)
+
+
 TODOs:
   Fix Overflow in compiler constant propagation
     (- maybe use GMP library)

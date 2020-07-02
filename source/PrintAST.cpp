@@ -28,7 +28,7 @@ void PointType::printAST() const{
 }
 
 void ConstantType::printAST() const{
-    printf("%lld",value);
+    printf("%s",value.c_str());
 }
 
 void exclamation::printAST(){
@@ -123,7 +123,7 @@ void NumberExprAST::printAST(int level){
     for(int i=0;i<level;i++){
         printf(" ");
     }
-    printf("number: %lld",value);
+    printf("%s",value.c_str());
 }
 
 void ConstantBoolAST::printAST(int level){

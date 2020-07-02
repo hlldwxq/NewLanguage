@@ -35,7 +35,12 @@
 using namespace llvm;
 using namespace llvm::Intrinsic;
 
+extern std::map<int,std::string> maxIntSignedValue;
+extern std::map<int,std::string> minIntSignedValue;
+extern std::map<int,std::string> maxIntUnSignedValue;
+extern std::map<int,std::string> minIntUnSignedValue;
 
+int getBitOfInt(std::string value, bool isSigned);
 
 [[noreturn]] void error(std::string msg);
 [[noreturn]] extern void Bug(const char * info,int lineN);
@@ -71,6 +76,7 @@ enum class ASTType{
     whileT,
     breakT,
     newT,
+    freeT,
 	varDef,
 	arrayDef,
     assign,
@@ -197,6 +203,7 @@ public:
 class PointType : public QType{
     QType* elementType;
     bool isnull;
+    llvm::Value* arraySize;
 public:
 
     PointType(QType* elementType1,bool isn = false) : QType(true){
@@ -215,6 +222,14 @@ public:
       return getElementType()->compare(pty->getElementType());
     }
 
+    void setArraySize(llvm::Value* size){
+        arraySize = size;
+    }
+
+    llvm::Value* getArraySize(){
+        return arraySize;
+    }
+    
     bool isNull() const{
         return isnull;
     }
@@ -235,14 +250,20 @@ public:
 //so it believes that singed cannot plus unsigned 
 class ConstantType : public QType{
 private:
-    long long value;
+    std::string value;
+    bool isPos;
 
 public:
-    ConstantType(long long v):QType(false){
+    ConstantType(std::string v, bool isP):QType(false){
         value = v;
+        isPos = isP;
     }
-    long long getValue() const{
+    
+    std::string getValue() const{
         return value;
+    }
+    bool getIsPos() const{
+        return isPos;
     }
     bool isConstant() const{
         return true;
@@ -408,4 +429,4 @@ extern IRBuilder<> Builder;
 extern std::unique_ptr<Module> TheModule;
 extern std::unique_ptr<TargetMachine> TM;
 extern bool doCheck;
-extern Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
+extern Scope<QAlloca,QFunction,QGlobalVariable,ReturnType,QValue> scope;

@@ -31,7 +31,7 @@ std::unique_ptr<NumberExprAST> Parser::ParseNumberExpr(){
     if(CurTok != Token::tok_number)
         Bug("call ParseNumberExpr, except constant number",lineN);
 
-    std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(NumVal,line1); 
+    std::unique_ptr<NumberExprAST> num = std::make_unique<NumberExprAST>(NumStr,line1); 
 	getNextToken();	// eat the number						   
 	return num;
 }
@@ -142,10 +142,10 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
     UOperator* unaryOp;
     switch(Op){
         case Token::exclamation_point:
-            unaryOp = new exclamation();
+            unaryOp = new exclamation(line1);
             break;
         case Token::minus:
-            unaryOp = new negative();
+            unaryOp = new negative(line1);
             break;
         default:
             error("unvalid unary operator at line: "+std::to_string(lineN));
@@ -155,9 +155,15 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
 	getNextToken();  //eat op
     
     if(Op == Token::minus && CurTok == Token::tok_number){
-        // -8 is regarded as two token: - and constant number 8
-        // and -8 should be regarded as constant number, no Unary
-        long long number = -NumVal;
+        if(NumStr=="0"){
+            error("-0 is invalid at line: "+std::to_string(line1));
+        }
+        std::string number = NumStr;
+        if(number[0]=='+')
+            number[0] = '-';
+        else
+            number[0] = '+';
+
         getNextToken();  //eat number
         return std::make_unique<NumberExprAST>(number,line1);
     }

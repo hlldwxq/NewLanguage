@@ -2,6 +2,16 @@
 #include "../header/ASTExpr.h"
 #include "../header/ASTCommand.h"
 #include "../header/Scope.h"
+
+void FreeAST::codegenCommand(){
+    QValue* p = ptr->codegen();
+    if(!p->getType()->getIsPointer()){
+        lerror("what will be freed must be a pointer");
+    }
+    Instruction* var_free = CallInst::CreateFree(p->getValue(),Builder.GetInsertBlock());
+    Builder.Insert(var_free);
+}
+
 void DefAST::codegenCommand(){
 
     llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
@@ -12,13 +22,24 @@ void DefAST::codegenCommand(){
     }
 
     QValue* init = value->codegen();
-
     init = assignCast(init,type);
     if(!init){
         CommandAST::lerror("type cannot be converted");
     }
+    
+    if(type->getIsPointer()){  
+        PointType* varPt = dynamic_cast<PointType*>(type);
+        PointType* valuePt = dynamic_cast<PointType*>(init->getType());
+        varPt->setArraySize(valuePt->getArraySize());
+    }
 
     Value* store = Builder.CreateStore(init->getValue(), allo->getAlloca());
+
+    if(value->getType()==ASTType::newT){
+        NewExprAST* newE = dynamic_cast<NewExprAST*>(value.get());
+        scope.addArray(Alloca,newE->codegen());
+        free(newE);
+    }
     if(!store){
         Bug("failed store",1);
     }
@@ -34,7 +55,20 @@ void AssignAST::codegenCommand(){
         lerror("type cannot be converted");
     }
 
+    if(leftV->getType()->getIsPointer()){  
+        PointType* varPt = dynamic_cast<PointType*>(leftV->getType());
+        PointType* valuePt = dynamic_cast<PointType*>(rightV->getType());
+        varPt->setArraySize(valuePt->getArraySize());
+    }
+
     llvm::Value* store = Builder.CreateStore(rightV->getValue(), leftV->getAlloca());
+
+    if(right->getType()==ASTType::newT){
+        NewExprAST* newE = dynamic_cast<NewExprAST*>(right.get());
+        scope.addArray(leftV->getAlloca(),newE->codegen());
+        free(newE);
+    }
+
     if(!store){
         Bug("failed store",0);
     }
@@ -42,8 +76,6 @@ void AssignAST::codegenCommand(){
 }
 
 void ReturnAST::codegenCommand(){
-
-    //const QAlloca* returnAlloca = scope.findSymbol("return");
 
     const ReturnType *rt = scope.getRetType();
 
@@ -232,9 +264,8 @@ void BreakAST::codegenCommand(){
     BasicBlock* breakBB = scope.getBreakBB();
     if(!breakBB)
         lerror("the break command must be in while or for loop");
-   // printf("break1\n");
+
     Builder.CreateBr(breakBB);
-   // printf("break2\n");
 
 }
 

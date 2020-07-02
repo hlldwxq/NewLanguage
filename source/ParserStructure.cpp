@@ -18,28 +18,20 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
     //get return Type
     if(CurTok == Token::tok_void){
         returnType = new ReturnType(true);
-        //ErrorD("return Type void",0);
         getNextToken();
     }else{ 
-        //ErrorD("not return Type void",0);
         returnType = new ReturnType(ParseType());
     }
-    if(returnType==NULL){
-        return nullptr;
-    }
+    assert(returnType!=NULL);
     
     if(CurTok != Token::tok_identifier){
         error("expect the function name at line: "+std::to_string(lineN));
-        //ErrorQ("except the function name",lineN);
-        //return nullptr;
     }
     FnName = IdentifierStr;
     getNextToken(); //eat function name
 
     if(CurTok != Token::left_paren){
         error("expect ( at line: "+std::to_string(lineN));
-       // ErrorQ("except ( in function definition", lineN);
-        //return nullptr;
     }
     getNextToken(); //eat (
 

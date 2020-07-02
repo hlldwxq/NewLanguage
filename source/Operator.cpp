@@ -1,6 +1,139 @@
 #include "../header/Operator.h"
 #include "../header/AST.h"
 
+bool bigger(std::string left,std::string right){
+    assert(left!=right);
+    bool LisPos = left[0] == '+';
+    bool RisPos = right[0] == '+';
+    if(LisPos && (!RisPos))
+        return true;
+    if(!LisPos && RisPos)
+        return false;
+
+    // symbols are the same
+    bool result=true;
+    if(left!="0"){
+        left.erase(0,1);
+    }
+    if(right!="0"){
+        right.erase(0,1);
+    }
+
+    if(left.size()>right.size()){
+        result = true;
+    }else if(left.size()<right.size()){
+        result = false;
+    }else{
+        for( int i=0 ; i<left.size() ; i++ ){
+            if(left[i]>right[i]){
+                result = true;
+                break;
+            }else if(left[i]<right[i]){
+                result = false;
+                break;
+            }
+        }
+    }
+    result = result & LisPos;
+    return result;
+}
+
+std::string getZero(int size){
+	std::string result = "";
+	for(int i=0;i<size;i++){
+		result += '0';
+	}
+	return result;
+}
+std::string removeExtra0(std::string s){
+    std::string pre="";
+    if(s[0]=='+'||s[0]=='-'){
+        pre+=s[0];
+        s.erase(0,1);
+    }
+    //keep the last 0 if it is 00000
+    while(s.size()>1 && s[0]=='0'){
+        s.erase(0,1);
+    }
+    if(s=="0")
+        return s;
+    return pre+s;
+}
+std::string plus1(std::string l,std::string r){
+	int carry = 0;
+	int length;
+	std::string result = "";
+
+    if(l=="0"){
+        return r;
+    }else if(r=="0"){
+        return l;
+    }
+    bool isLP = (l[0]=='+');
+    bool isRP = (r[0]=='+');
+
+    l.erase(0,1);
+    r.erase(0,1);
+      
+	int sizeGap;
+	if(l.size()>r.size()){
+		length = l.size();
+		sizeGap = l.size() - r.size();
+		r = getZero(sizeGap)+r;
+	}else if(r.size()>l.size()){
+		length = r.size();
+		sizeGap = r.size() - l.size();
+		l = getZero(sizeGap)+l;
+	}else{
+		length = l.size();
+	}
+	if(isLP == isRP){
+		for(int i=length-1;i>=0;i--){
+			int left = l[i]-'0';
+			int right = r[i]-'0';
+			int res = left + right + carry;
+			carry = res/10;
+			res = res - carry*10;
+			result = std::to_string(res)+result;
+		}
+		if(carry>0){
+			result = '1' + result;
+		}
+		if(!isLP){
+			result = '-' + result;
+		}else{
+            result = '+' + result;
+        }
+	}else{
+        if(l==r)
+            return "0";
+		if(!bigger("+"+l,"+"+r)){
+			std::string temp = r;
+			r = l;
+			l = temp;
+			isLP = !(isLP);
+			isRP = !(isRP);
+		}
+		for(int i=length-1;i>=0;i--){
+			int left = l[i]-'0';
+			int right = r[i]-'0';
+			int res = left - right - carry;
+			carry = res<0;
+			res = res + carry*10;
+			if(!(res==0 && i==0))
+				result = std::to_string(res)+result;
+		}
+		
+		
+		if(!isLP)
+			result = '-' + result;
+        if(isLP)
+            result = '+' + result;
+        result = removeExtra0(result);
+	}
+	return result;
+}
+
 //overflow
 Function* plus::overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
     Function* overFlow;
@@ -32,7 +165,7 @@ Function* star::overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
     return overFlow;
 }
 
-void division::divisionDyCheck(QValue* left,QValue* right){
+void division::OverFlowCheck(QValue* left,QValue* right){
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
     // check div 0
@@ -64,14 +197,15 @@ void division::divisionDyCheck(QValue* left,QValue* right){
     llvm::Value* ifDivOne = Builder.CreateICmpEQ(right->getValue(), negOne, "cmptmp");
 
     // check if left is the min
-    long long minSize = -(1L<<(leftT->getWidth()-1));
-    llvm::Value* negMin = ConstantInt::get(right->getType()->getLLVMType(), minSize);
+    //long long minSize = -(1L<<(leftT->getWidth()-1));
+    //llvm::Value* negMin = ConstantInt::get(right->getType()->getLLVMType(), minSize);
+    llvm::Value* negMin = ConstantInt::get(TheContext,APInt::getSignedMinValue(leftT->getWidth()));
     llvm::Value* ifMin = Builder.CreateICmpEQ(left->getValue(), negMin, "cmptmp");
 
     llvm::Value* isOverFlow = Builder.CreateAnd(ifDivOne,ifMin);
     Builder.CreateCondBr(isOverFlow, overflowBB, normalBB);
 
-    // div 0
+    // overflow
     Builder.SetInsertPoint(overflowBB);
     callError("overflow",line);
     overflowBB = Builder.GetInsertBlock();  
@@ -118,7 +252,26 @@ QValue* negative::codegen(QValue* operand){
     if(intType->getSigned()!=true){
         error("! with unsigned");
     }
-    llvm::Value* minu = Builder.CreateNeg(operand->getValue());
+    llvm::Value* rightV = operand->getValue();
+    if(doCheck){
+        IntType* qType = dynamic_cast<IntType*>(operand->getType());
+        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+        BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
+        BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
+
+        llvm::Value* negMin = ConstantInt::get(TheContext,APInt::getSignedMinValue(qType->getWidth()));
+        llvm::Value* ifMin = Builder.CreateICmpEQ(rightV, negMin, "cmptmp");
+        Builder.CreateCondBr(ifMin, overflowBB, normalBB);
+
+        // overflow
+        Builder.SetInsertPoint(overflowBB);
+        callError("overflow",line);
+        overflowBB = Builder.GetInsertBlock();  
+
+        // normal
+        Builder.SetInsertPoint(normalBB);
+    }
+    llvm::Value* minu = Builder.CreateNeg(rightV);
     return new QValue(type,minu);
 }
 

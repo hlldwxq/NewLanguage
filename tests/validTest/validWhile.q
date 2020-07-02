@@ -8,7 +8,7 @@
 # return a
 
 
-def sint64 while_break1(sint64 a){
+def sint64 while_break1 ( sint64 a){
     sint64 result = 0
     sint64 i =0
     if a>=0
@@ -19,7 +19,7 @@ def sint64 while_break1(sint64 a){
 
         i = i + 1
     }
-    else while i<-(a-1){
+    else while i<-(a- 1){
         if result>a
         then result = result - 1
         else break

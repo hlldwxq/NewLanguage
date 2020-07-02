@@ -8,7 +8,7 @@ function fail() {
 function do_test() {
   FILE=$1
   LOG="$FILE.log"
-
+  echo "$FILE"
   ./"$FILE" > ./"$LOG" 2>&1 || fail "$FILE: Failed"
 }
 
@@ -21,5 +21,5 @@ function isSuccess(){
 }
 
 for i in tests/validTest/*.out; do do_test "$i"; done
-for i in tests/validTest/*.log; do isSuccess "$i"; done
+#for i in tests/validTest/*.log; do isSuccess "$i"; done
 
