@@ -47,7 +47,7 @@ dynamicTest: llvmir $(O)
 
 $(O) : $(C) $(IR)
 	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
-	clang-10 -O2 -Wall -Wextra -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
+	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
 
 $(IR) : $(Q) llvmir
 	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
@@ -65,7 +65,7 @@ validTest: llvmir $(VT_O)
 
 $(VT_O) : $(VT_C) $(VT_IR)
 	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
-	clang-10 -O2 -Wall -Wextra -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
+	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
 
 $(VT_IR) : $(VT_Q) llvmir
 	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
@@ -89,7 +89,7 @@ meanfulTest: llvmir $(M_O)
 
 $(M_O) : $(M_C) $(M_IR)
 	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
-	clang-10 -O2 -Wall -Wextra -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
+	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
 
 $(M_IR) : $(M_Q) llvmir
 	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )

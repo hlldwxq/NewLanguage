@@ -8,7 +8,7 @@ long long for_scope(long long a);
 
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
     int fail = 0;
-    long long a = 10;
+    long long a = -10;
 
     if(for_binary_pos(a)!=a){ printf("postive for_binary_pos does not pass the test\n"); fail++;}
     if(for_binary_neg(a)!=a){ printf("postive for_binary_neg does not pass the test\n"); fail++;}

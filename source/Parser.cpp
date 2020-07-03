@@ -21,18 +21,6 @@ void Parser::initPrecedence(){
     BinopPrecedence[Token::disvision] = 40;         // /
 }
 
-long long Parser::string2longlong(std::string x) {
-
-    //becuse the developing enviroment is 64bit
-    //the range of the result of the function is 0 - (2^63-1)
-    long long a;
-    std::string res = x;
-    std::stringstream ss;
-    ss << res;
-    ss >> a;
-    return a;
-}
-
 int Parser::getChar(){
 
     if(charIndex < fileStr.size()){
@@ -125,15 +113,6 @@ Token Parser::gettok(){
         return Token::tok_identifier;
     }
 
-   /* isPos = true;
-    if(LastChar=='-'){
-        LastChar = getChar();
-        if(isdigit(LastChar)){
-            isPos = false;
-        }else{
-            return Token::minus;
-        }
-    }*/
     // Number: [0-9]+
     if (isdigit(LastChar)){ 
         NumStr = "";
@@ -153,14 +132,9 @@ Token Parser::gettok(){
             else 
                 break;
         }
-        if(NumStr!="0"){
-            //if(isPos)
-                NumStr = '+'+NumStr;
-            //else
-            //    NumStr = '-'+NumStr;    
-        }
 
-        if(getBitOfInt(NumStr,false)<=0){
+        //39 is the size of the max value of the sigend num
+        if(NumStr.length()>=39 && !checkRange(NumStr,false)){
             error("invalid number because it is too big or too small at line: "+std::to_string(lineN));
         }
 
@@ -392,7 +366,7 @@ void Parser::Parse(){
     while(CurTok != Token::tok_eof){
         std::unique_ptr<StructureAST> structure = ParseStructure();
         if(structure != nullptr){
-           // structure->printAST();
+            //structure->printAST();
             structure->codegenStructure();
         }else{
             exit(0);

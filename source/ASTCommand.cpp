@@ -34,12 +34,6 @@ void DefAST::codegenCommand(){
     }
 
     Value* store = Builder.CreateStore(init->getValue(), allo->getAlloca());
-
-    if(value->getType()==ASTType::newT){
-        NewExprAST* newE = dynamic_cast<NewExprAST*>(value.get());
-        scope.addArray(Alloca,newE->codegen());
-        free(newE);
-    }
     if(!store){
         Bug("failed store",1);
     }
@@ -62,12 +56,6 @@ void AssignAST::codegenCommand(){
     }
 
     llvm::Value* store = Builder.CreateStore(rightV->getValue(), leftV->getAlloca());
-
-    if(right->getType()==ASTType::newT){
-        NewExprAST* newE = dynamic_cast<NewExprAST*>(right.get());
-        scope.addArray(leftV->getAlloca(),newE->codegen());
-        free(newE);
-    }
 
     if(!store){
         Bug("failed store",0);
@@ -201,6 +189,9 @@ void ForAST::codegenCommand(){
     const QAlloca* startAlloca = scope.findSymbol(start->getName());
 	Value *CurVar = Builder.CreateLoad(startAlloca->getAlloca(), start->getName());
     QValue* stepVal = step->codegen();
+    if(!stepVal->getType()->isConstant()){
+        lerror("the step of fr command must to be constant");
+    }
     stepVal = assignCast(stepVal,startAlloca->getType());
     if(!stepVal){
         lerror("the step is invalid because type cannot be converted");

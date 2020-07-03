@@ -227,8 +227,8 @@ std::unique_ptr<ForAST> Parser::ParseFor(){
     }
     getNextToken(); //eat ,
 
-    std::unique_ptr<NumberExprAST> step;
-    if(CurTok != Token::tok_number){
+    std::unique_ptr<ExprAST> step =ParseExpr();
+    /*if(CurTok != Token::tok_number){
         if(CurTok==Token::minus){
             getNextToken(); //eat -
             if(CurTok != Token::tok_number){
@@ -251,7 +251,7 @@ std::unique_ptr<ForAST> Parser::ParseFor(){
     }
     else{
         step = ParseNumberExpr();
-    }
+    }*/
 
     std::unique_ptr<CommandAST> cmds = ParseCommand();
     if(cmds->isRet()||cmds->isBreak())

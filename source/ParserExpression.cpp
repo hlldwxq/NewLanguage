@@ -156,13 +156,13 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
     
     if(Op == Token::minus && CurTok == Token::tok_number){
         if(NumStr=="0"){
-            error("-0 is invalid at line: "+std::to_string(line1));
+            error("neg zero is invalid at line: "+std::to_string(line1));
         }
         std::string number = NumStr;
-        if(number[0]=='+')
-            number[0] = '-';
+        if(number[0]=='-')
+            number.erase(0,1);
         else
-            number[0] = '+';
+            number = "-"+number;
 
         getNextToken();  //eat number
         return std::make_unique<NumberExprAST>(number,line1);

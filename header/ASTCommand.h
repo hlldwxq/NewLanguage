@@ -98,10 +98,10 @@ public:
 class ForAST : public CommandAST{
     std::unique_ptr<DefAST> start;
     std::unique_ptr<ExprAST> condition;
-    std::unique_ptr<NumberExprAST> step;
+    std::unique_ptr<ExprAST> step;
     std::unique_ptr<CommandAST> body;
 public:
-    ForAST(std::unique_ptr<DefAST> start1,std::unique_ptr<ExprAST> condition1,std::unique_ptr<NumberExprAST> step1,std::unique_ptr<CommandAST> body1, int line1, bool isRet)
+    ForAST(std::unique_ptr<DefAST> start1,std::unique_ptr<ExprAST> condition1,std::unique_ptr<ExprAST> step1,std::unique_ptr<CommandAST> body1, int line1, bool isRet)
           : CommandAST(ASTType::forT,line1,isRet)
     {
         start = std::move(start1);

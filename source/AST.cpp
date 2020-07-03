@@ -9,7 +9,7 @@ IRBuilder<> Builder(TheContext);
 std::unique_ptr<Module> TheModule;
 std::unique_ptr<TargetMachine> TM;
 bool doCheck;
-Scope<QAlloca,QFunction,QGlobalVariable,ReturnType,QValue> scope;
+Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
 
 std::map<int,std::string> maxIntSignedValue;
 std::map<int,std::string> minIntSignedValue;
@@ -22,13 +22,14 @@ void initIntValueStr(){
     maxIntSignedValue.insert(std::pair<int,std::string>(32,"2147483647"));
     maxIntSignedValue.insert(std::pair<int,std::string>(64,"9223372036854775807"));
     //maxIntSignedValue.insert(std::pair<int,std::string>(64,"9223372036854775807‬"));
-    maxIntSignedValue.insert(std::pair<int,std::string>(128,"175642133179605998668418774123684105727"));
+    maxIntSignedValue.insert(std::pair<int,std::string>(128,"170141183460469231731687303715884105727"));
+    
 
     minIntSignedValue.insert(std::pair<int,std::string>(8,"128"));
     minIntSignedValue.insert(std::pair<int,std::string>(16,"32768"));
     minIntSignedValue.insert(std::pair<int,std::string>(32,"2147483648"));
     minIntSignedValue.insert(std::pair<int,std::string>(64,"9223372036854775808"));
-    minIntSignedValue.insert(std::pair<int,std::string>(128,"175642133179605998668418774123684105728"));
+    minIntSignedValue.insert(std::pair<int,std::string>(128,"170141183460469231731687303715884105728"));
 
     maxIntUnSignedValue.insert(std::pair<int,std::string>(8,"255"));
     maxIntUnSignedValue.insert(std::pair<int,std::string>(16,"65535"));
@@ -36,30 +37,30 @@ void initIntValueStr(){
     maxIntUnSignedValue.insert(std::pair<int,std::string>(64,"18446744073709551615"));
     maxIntUnSignedValue.insert(std::pair<int,std::string>(128,"340282366920938463463374607431768211455"));
 
-    minIntUnSignedValue.insert(std::pair<int,std::string>(8,"256"));
-    minIntUnSignedValue.insert(std::pair<int,std::string>(16,"65536"));
-    minIntUnSignedValue.insert(std::pair<int,std::string>(32,"4294967296"));
-    minIntUnSignedValue.insert(std::pair<int,std::string>(64,"18446744073709551616"));
-    minIntUnSignedValue.insert(std::pair<int,std::string>(128,"340282366920938463463374607431768211456"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(8,"0"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(16,"0"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(32,"0"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(64,"0"));
+    minIntUnSignedValue.insert(std::pair<int,std::string>(128,"0"));
 }
 
 int getBit(std::map<int,std::string> valueMap, std::string value){
     int bit = 8;
     std::string maxValue;
 
-    while( bit <= 128 ){
+    while( bit < 256 ){
         maxValue = valueMap[bit];
-        
+        if(value==maxValue)
+            return bit;
         if( value.size() > maxValue.size() ){
-
             bit *= 2;
         }else if( value.size() < maxValue.size() ){
             return bit;
         }else if( value.size() == maxValue.size() ){
+            
             for(int i=0;i<value.size();i++){
                 if(maxValue[i]<value[i]){
-                    bit*=2;
-                    break;
+                    return bit*2;
                 }
                 if(maxValue[i]>value[i]){
                     return bit;
@@ -70,31 +71,130 @@ int getBit(std::map<int,std::string> valueMap, std::string value){
             }
         }
     }
-    if(bit>128)
-        return -1;
-    else
-        return bit;
+    return bit;
     
 }
 
-int getBitOfInt(std::string value/*, bool isPos*/, bool isSigned){
+int getBitOfInt(std::string value, bool isSigned){
     
     if(maxIntSignedValue.empty()){
         initIntValueStr();
     }
     if(value=="0")
         return 8;
-    bool isPos = (value[0]=='+');
-    value.erase(0,1);
+    bool isPos = !(value[0]=='-');
+    if(!isPos) 
+        value.erase(0,1); //remove -
+    
     if( isPos && isSigned ){   //有符号正数
         return getBit(maxIntSignedValue,value);
+
     }else if( isPos && !isSigned){   //无符号正数
         return getBit(maxIntUnSignedValue,value);
+
     }else if( !isPos && isSigned){   //有符号负数
         return getBit(minIntSignedValue,value);
-    }else{  //无符号负数
-        return getBit(minIntUnSignedValue,value);
+
+    }else{  
+        return -1;
     }
+}
+
+int getBitOfAPInt(llvm::APInt value, bool isSigned){
+    int width = 8;
+    int currentW= value.getBitWidth();
+    while(true){    
+        if(isSigned){
+            if(value.isNegative()){
+                llvm::APInt minValue = APInt::getSignedMinValue(width).sext(currentW);
+                //Gets maximum signed value of APInt for specific bit width.
+                if(value.slt(minValue)){ //if current value is bigger than the max size, the width is not suitable
+                    width = width*2;
+                }else{
+                    break;
+                }
+            }
+            else{
+                llvm::APInt maxValue = APInt::getSignedMaxValue(width).sext(currentW);
+                //Gets maximum signed value of APInt for specific bit width.
+                if(value.sgt(maxValue)){ //if current value is bigger than the max size, the width is not suitable
+                    width = width*2;
+                }else{
+                    break;
+                }
+            }
+        }else{
+            llvm::APInt maxValue = APInt::getMaxValue(width).zext(currentW);
+            //Gets maximum signed value of APInt for specific bit width.
+            if(value.ugt(maxValue)){ //if current value is bigger than the max size, the width is not suitable
+                width = width*2;
+            }else{
+                break;
+            }
+        }
+    }
+    return width;
+}
+
+//return if str <= range
+bool compareStr(std::string str, std::string range){
+    if(str==range)
+        return true;
+    if(str.length()<range.length())
+        return true;
+    if(str.length()>range.length())
+        return false;
+    for(int i=0;i<range.length();i++){
+        if(str[i]-'0' > range[i]-'0'){
+            return false;
+        }
+        if(str[i]-'0' < range[i]-'0'){
+            return true;
+        }
+    }
+    return true;
+}
+//return if in valid range
+bool checkRange(std::string str, bool isSigned){
+    std::string maxSigned = "170141183460469231731687303715884105727";
+    std::string minSigned = "170141183460469231731687303715884105728";
+    std::string maxUnsigned = "340282366920938463463374607431768211455";
+                               
+    bool isNeg = str[0]=='-';
+    if(isNeg) str.erase(0,1);
+
+    if(isNeg && isSigned){
+        return compareStr(str,minSigned);
+    }else if(!isNeg && isSigned){
+        return compareStr(str,maxSigned);
+    }else if(!isNeg && !isSigned){
+        return compareStr(str,maxUnsigned);
+    }else{
+        Bug("unsigned negative number",0);
+    }
+}
+//return if in valid range
+bool checkRange(llvm::APInt apint, bool isSigned){
+
+    int currentW= apint.getBitWidth();
+    assert(currentW>128);  
+    if(isSigned){
+        if(apint.isNegative()){
+            llvm::APInt minValue = APInt::getSignedMinValue(128).sext(currentW);
+            //Gets maximum signed value of APInt for specific bit width.
+            return apint.slt(minValue);
+        }
+        else{
+            llvm::APInt maxValue = APInt::getSignedMaxValue(128).sext(currentW);
+            //Gets maximum signed value of APInt for specific bit width.
+            return apint.sgt(maxValue);
+        }
+    }else{
+        llvm::APInt maxValue = APInt::getMaxValue(128).zext(currentW);
+        //Gets maximum signed value of APInt for specific bit width.
+        return apint.ugt(maxValue);
+    }
+
 }
 
 [[noreturn]] void error(std::string msg) {
@@ -113,7 +213,7 @@ void initModule(std::string fileName){
     TM =std::unique_ptr<TargetMachine>(EngineBuilder().selectTarget());
     TheModule->setDataLayout(TM->createDataLayout());
 }
-
+//does user need dnamic check
 void initCheck(std::string check){
     if(check == "DyCheck"){
         doCheck = true;
@@ -121,11 +221,12 @@ void initCheck(std::string check){
     else if(check == "notDyCheck"){
         doCheck = false;
     }else{
-        printf("need DyCheck or notDyCheck\n");
+        printf("; need DyCheck or notDyCheck\n");
         exit(1);
     }
 }
 
+//call the top level global variable init function
 void CallInitFunction(){
     std::vector<const QFunction*> funs = scope.getInitFunction();
     if(funs.size()==0)
@@ -149,79 +250,38 @@ void CallInitFunction(){
     llvm::appendToGlobalCtors(*TheModule.get(), F, 1); 
 }
 
-//used when constant num is a operand of binaty operator and anther operand is not contant
-//I hope to make the type of constant num becomes IntType
-int getSuitableWidth(long long num, bool isSigned){
-    int initSize = 8;
-    if(isSigned){
-        while(initSize<=128){
-            long long maxRange = 2*((1L<<(initSize-2))-1)+1;                      
-            long long minRange = -(1L<<(initSize-1));
-
-            if(num<=maxRange && num>=minRange){
-                break;
-            }
-            initSize*=2;
-        }
-    }else{
-        while(initSize<=128){
-            unsigned long long maxRange = 2*((1UL<<(initSize-1))-1)+1;
-            long long minRange = 0;
-            if(num<=maxRange && num>=minRange){
-                break;
-            }
-            initSize*=2;
-        }
-    }
-
-    if(initSize>128)
-        return 0;
-    else
-        return initSize;
-
-}
-
-//only be used when the constant number is the value of global var 
-llvm::Constant* alignConst(long long value, QType* type){
-
-    if(type->getIsPointer())
-        return NULL;
-
-    IntType* intT = dynamic_cast<IntType*>(type);
-    long long maxRange;
-    long long minRange;
-    long long initSize = intT->getWidth();
-    if(intT->getSigned()){
-        maxRange = (2L<<(initSize-2))-1;
-        minRange = -(2L<<(initSize-2));
-    }else{
-        maxRange = (2L<<(initSize-1))-1;  // Notice the range of Numbers on the computer
-        minRange = 0; 
-    }
-
-    if(value<minRange || value>maxRange){
-        return NULL;
-    }
-
-    return ConstantInt::get(intT->getLLVMType(),value);
-}
-
 // when the constant number is signed(default), but another operand of leftValue is unsigned
-QValue* adjustSign(QValue* num, bool isSigned){
+//if valid, convert the constantType as IntType
+QValue* constAdjustSign(QValue* num, bool isSigned){
+    assert(num->getType()->isConstant());
+
     ConstantType* type = dynamic_cast<ConstantType*>(num->getType());
     if(isSigned==false){
-        if(type->getValue()[0]=='-'){
-           // printf("unsigned and neg\n");
+        if(type->isNegative()){
             return NULL;
         }
     }
-    int width = getBitOfInt(type->getValue(),isSigned);
-  //  printf("width %d\n",width);
-    if(width<=0){
-        return NULL;
+    int width = type->getWidth();
+    if(type->getValue()!=""){
+        // the constant num is a real constant num,we just need to get a new width based on the sign
+        width = getBitOfInt(type->getValue(), isSigned);
+    }else{ 
+        //this is the result of constant number calculation, like 4+5, it does not has string, it just has APInt
+        width = getBitOfAPInt(type->getApValue(),isSigned);
     }
-    IntType* t = new IntType(isSigned,width);
-    llvm::Value* constInt = ConstantInt::get(TheContext,llvm::APInt(width, type->getValue(), 10));
+
+    IntType* t = new IntType(isSigned,width); //get suitable type
+    llvm::Value* constInt;
+    if(width==type->getWidth()){
+        constInt = num->getValue();
+    }else{
+        if(type->getValue()!=""){
+            constInt = ConstantInt::get(TheContext,llvm::APInt(width, type->getValue(), 10));
+        }else{ 
+            constInt = Builder.CreateIntCast(num->getValue(), t->getLLVMType(), isSigned);
+        }
+    }
+
     return new QValue(t,constInt);
 }
 
@@ -231,7 +291,7 @@ QValue* upCast(QValue* qv, IntType* type){
     return new QValue(newType,newQv);
 }
 
-// for defAST, assignAST, returnAST, call argument
+// for defAST, assignAST, returnAST, call argument; check if the width fix and do bit cast  
 QValue* assignCast(QValue* varValue, QType* leftT){
 
     if(varValue->getType()!=NULL && leftT->getIsPointer() != varValue->getType()->getIsPointer()){
@@ -243,7 +303,8 @@ QValue* assignCast(QValue* varValue, QType* leftT){
             return NULL;
         }
         if(varValue->getType()->isConstant()){
-            varValue = adjustSign(varValue,(dynamic_cast<IntType*>(leftT))->getSigned());
+
+            varValue =constAdjustSign(varValue,(dynamic_cast<IntType*>(leftT))->getSigned());
             
             if(!varValue){
                 return NULL;
@@ -273,22 +334,10 @@ QValue* assignCast(QValue* varValue, QType* leftT){
             }
         }
     }
+
     return varValue;
 }
 
-Constant* geti8StrVal(char const* str, Type* t, std::string name) {
-    //error
-    //GlobalVariable* GVStr = TheModule->getGlobalVariable(name, true); //true allow internal global var
-    Constant* strConstant = ConstantDataArray::getString(TheContext, str);
-    auto GVStr = TheModule->getOrInsertGlobal(name, strConstant->getType());
-   
-    Builder.CreateStore(strConstant, GVStr);
-    
-    Constant* zero = Constant::getNullValue(t);
-    Constant* indices[] = {zero, zero};
-    Constant* strVal = ConstantExpr::getGetElementPtr(/*GVStr->getValueType()*/strConstant->getType(),GVStr, indices, true);
-    return strVal;
-}
 //call error and exit function when overflow
 void callError(std::string info, int line){
 
@@ -304,11 +353,7 @@ void callError(std::string info, int line){
 
     std::string str = info + " at line: %d\n";
     Constant *lineN = ConstantInt::get(qtype, line);
-    /*Constant *info1 = geti8StrVal(str.c_str(), qtype,"str");
-    std::vector<Value*> ArgsV;
-    ArgsV.push_back(info1);
-    ArgsV.push_back(lineN);
-    */
+
     const char *str_ptr = str.c_str();
     Value *globalStrPtr = Builder.CreateGlobalStringPtr(str_ptr);
     std::vector<Value*> ArgsV;
@@ -318,10 +363,6 @@ void callError(std::string info, int line){
     Function *F = dyn_cast<Function>(PrintFunc.getCallee());
     assert(F);
     Builder.CreateCall(F,ArgsV);
-
-//     if (Function *F = dyn_cast<Function>(PrintFunc.getCallee())) {
-//         Builder.CreateCall(F,ArgsV);
-//     }
 
     std::vector<llvm::Type*> exitargs;
     exitargs.push_back(qtype);
@@ -337,28 +378,74 @@ void callError(std::string info, int line){
     Builder.CreateUnreachable();
 }
 
-llvm::Type* IntType::getLLVMType() const{
-    check_valid();
-    return Type::getIntNTy(TheContext,width);
-}
+/////////////////////save old code///////////////////
+//used when constant num is a operand of binaty operator and anther operand is not contant
+//I hope to make the type of constant num becomes IntType
+/*int getSuitableWidth(long long num, bool isSigned){
+    int initSize = 8;
+    if(isSigned){
+        while(initSize<=128){
+            long long maxRange = 2*((1L<<(initSize-2))-1)+1;                      
+            long long minRange = -(1L<<(initSize-1));
 
-llvm::PointerType* PointType::getLLVMType() const{
-    return elementType->getLLVMType()->getPointerTo(0);   
-}
-
-llvm::Type* ConstantType::getLLVMType() const{
-    int initSize = getBitOfInt(value,true);
-    if(initSize<=0){
-        error("invalid number when getting TYPE: "+ value);
+            if(num<=maxRange && num>=minRange){
+                break;
+            }
+            initSize*=2;
+        }
+    }else{
+        while(initSize<=128){
+            unsigned long long maxRange = 2*((1UL<<(initSize-1))-1)+1;
+            long long minRange = 0;
+            if(num<=maxRange && num>=minRange){
+                break;
+            }
+            initSize*=2;
+        }
     }
-    return (new IntType(true,initSize))->getLLVMType();
-}
 
-llvm::Type* ReturnType::getLLVMType() const{
-    if(isVoid){
-        return llvm::Type::getVoidTy(TheContext);
-    }else {
-        return qType->getLLVMType();
+    if(initSize>128)
+        return 0;
+    else
+        return initSize;
+
+}*/
+
+//only be used when the constant number is the value of global var 
+/*llvm::Constant* alignConst(long long value, QType* type){
+
+    if(type->getIsPointer())
+        return NULL;
+
+    IntType* intT = dynamic_cast<IntType*>(type);
+    long long maxRange;
+    long long minRange;
+    long long initSize = intT->getWidth();
+    if(intT->getSigned()){
+        maxRange = (2L<<(initSize-2))-1;
+        minRange = -(2L<<(initSize-2));
+    }else{
+        maxRange = (2L<<(initSize-1))-1;  // Notice the range of Numbers on the computer
+        minRange = 0; 
     }
+
+    if(value<minRange || value>maxRange){
+        return NULL;
+    }
+
+    return ConstantInt::get(intT->getLLVMType(),value);
+}*/
+
+/*Constant* geti8StrVal(char const* str, Type* t, std::string name) {
+    //error
+    //GlobalVariable* GVStr = TheModule->getGlobalVariable(name, true); //true allow internal global var
+    Constant* strConstant = ConstantDataArray::getString(TheContext, str);
+    auto GVStr = TheModule->getOrInsertGlobal(name, strConstant->getType());
+   
+    Builder.CreateStore(strConstant, GVStr);
     
-}
+    Constant* zero = Constant::getNullValue(t);
+    Constant* indices[] = {zero, zero};
+    Constant* strVal = ConstantExpr::getGetElementPtr(strConstant->getType(),GVStr, indices, true);
+    return strVal;
+} */

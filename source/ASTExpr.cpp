@@ -20,7 +20,7 @@ const QAlloca* VariableAST::codegenLeft(){
 const QAlloca* ArrayIndexExprAST::codegenLeft(){
 
     QValue* left = pointer->codegen();
-    std::cout<<"array index: "<<left->getValue()<<std::endl;
+
     QValue* arrI = index->codegen();
     Value* arrIndex = arrI->getValue();
 	
@@ -33,37 +33,7 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     if(!left->getType()->getIsPointer()){
         error("left expression must be a pointer");
     }
-    if(doCheck){
-        Function *TheFunction = Builder.GetInsertBlock()->getParent();
-
-        const QValue* maxSize = scope.getArraySize(left->getValue());
-        assert(maxSize!=NULL);
-        llvm::Value* arrSize = maxSize->getValue();
-        
-        //type convert
-        if(!(maxSize->getType()->compare(arrI->getType()))){
-            const IntType* sizeT = dynamic_cast<const IntType*>(maxSize->getType());
-            const IntType* arrT = dynamic_cast<const IntType*>(arrI->getType());
-            if(sizeT->getWidth()>arrT->getWidth()){
-                arrSize = Builder.CreateIntCast(arrSize, sizeT->getLLVMType(),false);
-            }else{
-                arrIndex = Builder.CreateIntCast(arrIndex, arrT->getLLVMType(),false);
-            }
-        }
-
-        Value* cmp = Builder.CreateICmpUGT(arrIndex,arrSize, "cmptmp");
-        BasicBlock *outBoundBB = BasicBlock::Create(TheContext, "outBound", TheFunction);
-        BasicBlock *notOutBB = BasicBlock::Create(TheContext, "indexNormal",TheFunction);
-        Builder.CreateCondBr(cmp, notOutBB, outBoundBB);
-
-        // overflow
-        Builder.SetInsertPoint(outBoundBB);
-        callError("the array is out of the bound",line);
-        outBoundBB = Builder.GetInsertBlock(); 
-
-        //normal
-        Builder.SetInsertPoint(notOutBB);
-    }
+    
     Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
     
     PointType* pt = dynamic_cast<PointType*>(left->getType());
@@ -83,11 +53,8 @@ QValue* LeftValueAST::codegen() {
 }
 
 QValue* NumberExprAST::codegen(){
-    ConstantType* qtype = new ConstantType(value,isPos);
-    //llvm::Value* constInt =  ConstantInt::get(qtype->getLLVMType(), value);
-
-    int bit = getBitOfInt(value, true); 
-    llvm::Value* constInt = ConstantInt::get(TheContext,llvm::APInt(bit, value, 10));
+    ConstantType* qtype = new ConstantType(value);
+    llvm::Value* constInt = ConstantInt::get(TheContext,qtype->getApValue());
     return new QValue(qtype,constInt);
 }
 
@@ -122,19 +89,21 @@ QValue* BinaryExprAST::codegen(){
     if(leftQV->getType()->isConstant() && rightQV->getType()->isConstant()){
         ConstantType* left = dynamic_cast<ConstantType*>(leftQV->getType());
         ConstantType* right = dynamic_cast<ConstantType*>(rightQV->getType());
-        return op->constantCodegen(left->getValue(),right->getValue());
+        return op->constantCodegen(left->getApValue(),right->getApValue());
     }
 
     if(leftQV->getType()->isConstant() || rightQV->getType()->isConstant()){
         if(leftQV->getType()->isConstant()){
             IntType* rightInt = dynamic_cast<IntType*>(rightQV->getType());
-            leftQV = adjustSign(leftQV,rightInt->getSigned());
+            leftQV = constAdjustSign(leftQV,rightInt->getSigned()); 
+            //the initial sign of 0 or positive constant number is unsigned, negative num is signed
+            //now we could based on the context to decide the sign of num 
             if(!leftQV){
                 error("unvalid binary calculation between signed number and unsigned number");
             }
         }else{
             IntType* leftInt = dynamic_cast<IntType*>(leftQV->getType());
-            rightQV = adjustSign(rightQV,leftInt->getSigned());
+            rightQV = constAdjustSign(rightQV,leftInt->getSigned());
             if(!rightQV){
                 error("unvalid binary calculation between signed number and unsigned number");
             }
@@ -164,6 +133,7 @@ QValue* BinaryExprAST::codegen(){
     
 }
 
+//just for new expr
 void intCastCheck(Type* qtype, Value* value, int line){
     
     unsigned length = qtype->getIntegerBitWidth();
@@ -237,6 +207,7 @@ QValue* NullExprAST::codegen(){
 
 QValue* CallExprAST::codegen_internal(bool is_cmd) {
 
+
     const QFunction* call = scope.getFunction(functionName);
     if(!call){
         ExprAST::lerror("the function has not been declared");
@@ -256,11 +227,11 @@ QValue* CallExprAST::codegen_internal(bool is_cmd) {
     std::vector<Value*> ArgsV;
 
     for(int i=0 ; i<args.size(); i++){
-        
+
         QType* needArgType = argsType[i];
         QValue* realArg = args[i]->codegen();
-        
         realArg = assignCast(realArg,needArgType);
+
         if(!realArg){
             ExprAST::lerror("type cannot be converted");
         }
@@ -273,8 +244,10 @@ QValue* CallExprAST::codegen_internal(bool is_cmd) {
     } else {
       return new QValue(returnType->getType(),Builder.CreateCall(func, ArgsV, "calltmp"));
     }
+
 }
 
 QValue* CallExprAST::codegen(){
-  return codegen_internal(false);
+    QValue* qv = codegen_internal(false);
+    return qv;
 }

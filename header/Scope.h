@@ -6,7 +6,7 @@
 #include <string>
 #include <iostream>
 extern llvm::IRBuilder<> Builder;
-template <class T, class T1, class T2, class T3,class T4>
+template <class T, class T1, class T2, class T3>
 class Scope{
 
     std::vector<typename std::map<std::string,const T*>> symbolTable;
@@ -15,7 +15,7 @@ class Scope{
     std::vector<const T1*> initFunction; //init global var
     const T3* retType = NULL;
     llvm::BasicBlock* breakBB = NULL;
-    std::map<llvm::Value*,T4*> arraySize;
+
 public:
 
     void addInitFunction(T1* f){
@@ -42,28 +42,6 @@ public:
         return NULL;
     }
 
-    bool addArray(llvm::Value* alloc, T4* size){
-        if(arraySize.find(alloc)!=arraySize.end()){
-            return false; //cannot get the line number, thus ask codegen to emit error info
-        }
-        arraySize[alloc] = size;
-        return true;
-    }
-
-    const T4* getArraySize(llvm::Value* alloc){
-           
-        for (auto iter=arraySize.begin(); iter!=arraySize.end(); iter++){        
-            std::cout<<"current alloca: "<<iter->first<<std::endl;
-            llvm::Value* v = Builder.CreateLoad(iter->first);
-            std::cout<<"current value: "<<v<<std::endl;
-        }
-        std::cout<<"what is checking: "<<alloc<<std::endl;
-        
-        if(arraySize.find(alloc)!=arraySize.end()){
-            return arraySize[alloc]; //cannot get the line number, thus ask codegen to emit error info
-        }
-        return NULL;
-    }
 
     bool addSymbol(std::string name , T* Alloca){
         if(symbolTable.size()==0) {printf("no scope"); exit(1);}
@@ -83,7 +61,6 @@ public:
         }
 
         scope[name] = Alloca;
-        std::cout<<"add symbol: "<<scope[name]->getAlloca()<<std::endl;
         return true;
     }
 

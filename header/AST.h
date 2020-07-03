@@ -35,12 +35,28 @@
 using namespace llvm;
 using namespace llvm::Intrinsic;
 
+std::unique_ptr<Module>& getModule();
+void callError(std::string str,int line);
+void initCheck(std::string check);
+void initModule(std::string fileName);
+void CallInitFunction();
+int getBitOfInt(std::string value, bool isSigned);
+int getBitOfAPInt(llvm::APInt value, bool isSigned);
+bool checkRange(std::string str, bool isSignd);
+bool checkRange(llvm::APInt apint, bool isSigend);
+//other functions are at the end of the file
+
 extern std::map<int,std::string> maxIntSignedValue;
 extern std::map<int,std::string> minIntSignedValue;
 extern std::map<int,std::string> maxIntUnSignedValue;
 extern std::map<int,std::string> minIntUnSignedValue;
 
-int getBitOfInt(std::string value, bool isSigned);
+extern LLVMContext TheContext;
+extern IRBuilder<> Builder;
+extern std::unique_ptr<Module> TheModule;
+extern std::unique_ptr<TargetMachine> TM;
+extern bool doCheck;
+//the scope is at the end of the file
 
 [[noreturn]] void error(std::string msg);
 [[noreturn]] extern void Bug(const char * info,int lineN);
@@ -144,7 +160,14 @@ public:
         return isVoid;
     }
 
-    llvm::Type* getLLVMType() const;
+    llvm::Type* getLLVMType() const{
+        if(isVoid){
+            return llvm::Type::getVoidTy(TheContext);
+        }else {
+            return qType->getLLVMType();
+        }
+        
+    }
 
     void printAST() const;
 
@@ -162,6 +185,7 @@ private:
         case 32:
         case 64:
         case 128:
+        case 256: //for contant num
             break;
         default:
             Bug("invalid int width",width);
@@ -188,7 +212,10 @@ public:
     }
 
     void printAST() const;
-    llvm::Type* getLLVMType() const;
+    llvm::Type* getLLVMType() const{
+        check_valid();
+        return Type::getIntNTy(TheContext,width);
+    }
 
     virtual bool compare(QType const* ty) const {
       if (ty->getIsPointer()) return false;
@@ -213,7 +240,9 @@ public:
     QType* getElementType() const{
         return elementType;
     }
-    llvm::PointerType* getLLVMType() const;
+    llvm::PointerType* getLLVMType() const{
+        return elementType->getLLVMType()->getPointerTo(0);   
+    }
     void printAST() const;
 
     virtual bool compare(QType const* ty) const {
@@ -250,20 +279,43 @@ public:
 //so it believes that singed cannot plus unsigned 
 class ConstantType : public QType{
 private:
+    llvm::APInt apValue;
     std::string value;
-    bool isPos;
-
+    bool isNeg;
+    int width ;
 public:
-    ConstantType(std::string v, bool isP):QType(false){
+    ConstantType(std::string v):QType(false){
         value = v;
-        isPos = isP;
+        
+        if(v[0]=='-'){
+            isNeg = true;
+        }else{
+            isNeg = false;
+        }
+        width = getBitOfInt(value, true);  //the initial sign of constant num is sigend 
+        assert(width<=256);
+        //printf("; width : %d  %s\n",width,value.c_str());
+        apValue = llvm::APInt(width, value, 10);
+        //apValue.print(outs(),true);
     }
-    
+    ConstantType(llvm::APInt ap):QType(false){
+        apValue = ap;
+        isNeg = ap.isNegative();
+        width = ap.getBitWidth();
+        value = "";
+    }
     std::string getValue() const{
         return value;
     }
-    bool getIsPos() const{
-        return isPos;
+    llvm::APInt getApValue() const{
+        
+        return apValue;
+    }
+    int getWidth() const{
+        return width;
+    }
+    bool isNegative() const{
+        return isNeg;
     }
     bool isConstant() const{
         return true;
@@ -271,15 +323,20 @@ public:
     bool getIsPointer() const{
         return false;
     }
-    llvm::Type* getLLVMType() const;
+    llvm::Type* getLLVMType() const{
+        return (new IntType(isNeg,width))->getLLVMType();
+    }
+
     void printAST() const;
+
     bool compare(QType const* ty) const{
         if(!ty->isConstant())
             return false;
         ConstantType const* ct = dynamic_cast<ConstantType const*>(ty);
-        if(ct->getValue()==value)
+        if(value!="" && ct->getValue()!="" && ct->getValue()==value)
             return true;
-        return false;
+        else
+            return apValue == ct->getApValue(); //test to check
     }
 };
 
@@ -414,19 +471,8 @@ public:
     virtual void printAST(int level=0) {}
 };
 
-std::unique_ptr<Module>& getModule();
-void callError(std::string str,int line);
-void initCheck(std::string check);
-void initModule(std::string fileName);
-QValue* assignCast(QValue* varValue, QType* leftT);
-int getSuitableWidth(long long num, bool isSigned);
-QValue* adjustSign(QValue* num, bool isSigned);
-QValue* upCast(QValue* qv, IntType* type);
-void CallInitFunction();
 
-extern LLVMContext TheContext;
-extern IRBuilder<> Builder;
-extern std::unique_ptr<Module> TheModule;
-extern std::unique_ptr<TargetMachine> TM;
-extern bool doCheck;
-extern Scope<QAlloca,QFunction,QGlobalVariable,ReturnType,QValue> scope;
+extern Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
+QValue* assignCast(QValue* varValue, QType* leftT);
+QValue* constAdjustSign(QValue* num, bool isSigned);
+QValue* upCast(QValue* qv, IntType* type);

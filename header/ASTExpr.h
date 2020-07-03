@@ -49,24 +49,15 @@ public:
 // Constant Number
 class NumberExprAST : public ExprAST{
     std::string value;
-    bool isPos;
+
 public:
     NumberExprAST(std::string val, int line1):ExprAST(ASTType::number,line1){
         value = val;
-        if(val=="0"){
-            isPos = true;
-        }else if(val[0]=='+'){
-            isPos = true;
-        }else{
-            isPos = false;
-        }
     }
     std::string getValue(){
         return value;
     }
-    bool getIsPos(){
-        return isPos;
-    }
+
     void printAST(int level=0);
     QValue* codegen();
 };
