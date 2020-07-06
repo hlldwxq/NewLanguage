@@ -302,6 +302,7 @@ QValue* assignCast(QValue* varValue, QType* leftT){
         if(varValue->getType()==NULL || varValue->getValue()==NULL){ 
             return NULL;
         }
+        
         if(varValue->getType()->isConstant()){
 
             varValue =constAdjustSign(varValue,(dynamic_cast<IntType*>(leftT))->getSigned());
@@ -313,6 +314,11 @@ QValue* assignCast(QValue* varValue, QType* leftT){
         IntType* leftInt = dynamic_cast<IntType*>(leftT);
         IntType* rightInt = dynamic_cast<IntType*>(varValue->getType());
 
+        if(leftInt->getSigned()==false && leftInt->getWidth()==1){
+            if(!leftInt->compare(rightInt)){
+                return NULL;
+            }
+        }
         if(leftInt->getSigned() != rightInt->getSigned()){
             return NULL;
         }

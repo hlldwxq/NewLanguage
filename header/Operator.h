@@ -169,6 +169,11 @@ public:
 
     virtual QValue* codegen(QValue* a, QValue* b) {
         assert(a->getType()->compare(b->getType()));
+
+        if(opType!=Operators::andT && opType!=Operators::orT && a->getType()->compare(new IntType(false,1)) && b->getType()->compare(new IntType(false,1))){
+            error("boolean (uint1) cannot be as the operand of arithmatic operand at Line: "+std::to_string(line));
+        }
+
         if(doCheck)
             OverFlowCheck(a,b);
         IntType* getSign = dynamic_cast<IntType*>(a->getType());

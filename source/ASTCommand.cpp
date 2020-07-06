@@ -24,7 +24,7 @@ void DefAST::codegenCommand(){
     QValue* init = value->codegen();
     init = assignCast(init,type);
     if(!init){
-        CommandAST::lerror("type cannot be converted");
+        CommandAST::lerror("definition: type cannot be converted");
     }
     
     if(type->getIsPointer()){  
@@ -46,7 +46,7 @@ void AssignAST::codegenCommand(){
 
     rightV = assignCast(rightV,leftV->getType());
     if(!rightV){
-        lerror("type cannot be converted");
+        lerror("assign: type cannot be converted");
     }
 
     if(leftV->getType()->getIsPointer()){  
@@ -76,7 +76,7 @@ void ReturnAST::codegenCommand(){
       QValue* returnQv = value->codegen();
       returnQv = assignCast(returnQv,rt->getType());
       if(!returnQv){
-          lerror("type cannot be converted");
+          lerror("return: type cannot be converted");
       }
 
       Builder.CreateRet(returnQv->getValue());
@@ -117,7 +117,7 @@ void IfAST::codegenCommand(){
     QValue *Cond = condition->codegen();
     Cond = assignCast(Cond,&IntType::bool_type);
     if(!Cond){
-        lerror("type cannot be converted to Boolean");
+        lerror("if condition: type cannot be converted to Boolean");
     }
 	Builder.CreateCondBr(Cond->getValue(), ThenBB, ElseBB);
 
@@ -172,7 +172,7 @@ void ForAST::codegenCommand(){
 	QValue *Cond = condition->codegen();
     Cond = assignCast(Cond,&IntType::bool_type);
     if(!Cond){
-        lerror("type cannot be converted to Boolean");
+        lerror("for: type cannot be converted to Boolean");
     }
 	Builder.CreateCondBr(Cond->getValue(), BodyBB, AfterBB);
 
@@ -229,7 +229,7 @@ void WhileAST::codegenCommand(){
 	QValue *Cond = condition->codegen();
     Cond = assignCast(Cond,&IntType::bool_type);
     if(!Cond){
-        lerror("type cannot be converted to Boolean");
+        lerror("while: type cannot be converted to Boolean");
     }
 	Builder.CreateCondBr(Cond->getValue(), BodyBB, AfterBB);
 

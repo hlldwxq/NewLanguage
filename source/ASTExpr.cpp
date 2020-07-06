@@ -92,8 +92,16 @@ QValue* BinaryExprAST::codegen(){
         return op->constantCodegen(left->getApValue(),right->getApValue());
     }
 
+    if(rightQV->getType()->compare(new IntType(false,1)) && !leftQV->getType()->compare(new IntType(false,1))){
+        error("the boolean(uint1) cannot do binary calculation with int");
+    }
+    if(!rightQV->getType()->compare(new IntType(false,1)) && leftQV->getType()->compare(new IntType(false,1))){
+        error("the boolean(uint1) cannot do binary calculation with int");
+    }
+
     if(leftQV->getType()->isConstant() || rightQV->getType()->isConstant()){
         if(leftQV->getType()->isConstant()){
+            
             IntType* rightInt = dynamic_cast<IntType*>(rightQV->getType());
             leftQV = constAdjustSign(leftQV,rightInt->getSigned()); 
             //the initial sign of 0 or positive constant number is unsigned, negative num is signed
@@ -102,6 +110,7 @@ QValue* BinaryExprAST::codegen(){
                 error("unvalid binary calculation between signed number and unsigned number");
             }
         }else{
+            
             IntType* leftInt = dynamic_cast<IntType*>(leftQV->getType());
             rightQV = constAdjustSign(rightQV,leftInt->getSigned());
             if(!rightQV){
@@ -109,7 +118,7 @@ QValue* BinaryExprAST::codegen(){
             }
         }
     }
-
+    
     IntType* leftInt = dynamic_cast<IntType*>(leftQV->getType());
     IntType* rightInt = dynamic_cast<IntType*>(rightQV->getType());
 
@@ -193,10 +202,10 @@ QValue* NewExprAST::codegen(){
 
     //call malloc normally
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t, type->getElementType()->getLLVMType(), mallocSize,arraySize,nullptr,"");
-    
+    //std::cout<<"the llvm::Value* of new expression: "<<var_malloc<<std::endl;
     Value* result = Builder.Insert(var_malloc);
     type->setArraySize(arraySize);   //record the size of new
-    return new QValue(type,result); 
+    return new QValue(type,var_malloc); 
 }
 
 QValue* NullExprAST::codegen(){
@@ -206,7 +215,6 @@ QValue* NullExprAST::codegen(){
 }
 
 QValue* CallExprAST::codegen_internal(bool is_cmd) {
-
 
     const QFunction* call = scope.getFunction(functionName);
     if(!call){
@@ -242,7 +250,9 @@ QValue* CallExprAST::codegen_internal(bool is_cmd) {
       Builder.CreateCall(func, ArgsV);
       return NULL;
     } else {
-      return new QValue(returnType->getType(),Builder.CreateCall(func, ArgsV, "calltmp"));
+        Value* c = Builder.CreateCall(func, ArgsV, "calltmp");
+       // std::cout << "the llvm::Value* of call t(): "<< c << std::endl;
+        return new QValue(returnType->getType(),c);
     }
 
 }
