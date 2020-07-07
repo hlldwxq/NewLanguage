@@ -11,6 +11,8 @@ std::unique_ptr<TargetMachine> TM;
 bool doCheck;
 Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
 
+llvm::Value* testNewV;
+
 std::map<int,std::string> maxIntSignedValue;
 std::map<int,std::string> minIntSignedValue;
 std::map<int,std::string> maxIntUnSignedValue;

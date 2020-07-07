@@ -208,8 +208,9 @@ QValue* NewExprAST::codegen(){
 
     //call malloc normally
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t, type->getElementType()->getLLVMType(), mallocSize,arraySize,nullptr,"");
-    Value* result = Builder.Insert(var_malloc);
+    Value* result = Builder.Insert(var_malloc,"new");
 
+    testNewV = result; // for call test
     scope.addArraySize(result,arraySize); // for test
 
     return new QValue(type,var_malloc); 
@@ -258,7 +259,7 @@ QValue* CallExprAST::codegen_internal(bool is_cmd) {
       return NULL;
     } else {
         Value* c = Builder.CreateCall(func, ArgsV, "calltmp");
-       // std::cout << "the llvm::Value* of call t(): "<< c << std::endl;
+        //Builder.CreatePtrDiff(c, testNewV, "cmpValue");  // I try to use this compare two values, but 
         return new QValue(returnType->getType(),c);
     }
 

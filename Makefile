@@ -43,6 +43,14 @@ test.ll: test.q llvmir
 	./llvmir DyCheck test.q>test.ll
 
 
+callTest: testCall.ll testCall.c
+	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g testCall.c testCall.ll -o testCall.out
+
+testCall.ll: testCall.q llvmir
+	./llvmir DyCheck testCall.q>testCall.ll
+
+
+
 Q = $(wildcard $(DIR_TEST)/dynamicCheck/*.q)
 IR = $(patsubst %.q, %.ll, $(Q))
 C = $(patsubst %.q, %.c, $(Q))
