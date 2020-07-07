@@ -2,7 +2,7 @@
 int Sinted8_0();
 int Sinted8_1();
 int Sinted16_1();
-int Sinted8_16_2();
+int Sinted16_2();
 int Sinted32_0();
 int Sinted32_1();
 int Sinted64_0();

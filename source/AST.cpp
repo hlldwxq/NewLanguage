@@ -330,13 +330,18 @@ QValue* assignCast(QValue* varValue, QType* leftT){
         }        
     }else{
         if(varValue->getType()==NULL && varValue->getValue()==NULL){ //null
-            varValue = new QValue(leftT, Constant::getNullValue(leftT->getLLVMType()));
+            PointType* leftP = dynamic_cast<PointType*>(leftT);
+            PointType* nullPtr = new PointType(leftP->getElementType(),true);
+            varValue = new QValue(nullPtr, Constant::getNullValue(leftT->getLLVMType()));
         }
         else{
             PointType* leftP = dynamic_cast<PointType*>(leftT);
             PointType* rightP = dynamic_cast<PointType*>(varValue->getType());
             if(!(rightP->isNull()) && !(leftP->compare(rightP))){
                 return NULL;
+            }
+            if(leftP->isNull()){
+                leftP->setNull( rightP->isNull());
             }
         }
     }

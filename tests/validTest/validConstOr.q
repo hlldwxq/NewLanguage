@@ -207,7 +207,7 @@ def uint1 ors16_6() {
 }
 #= mid neg | mid neg
 def uint1 ors16_7() {
-  return testConstOrs16(-32768/2,-32768/2,-32768 | -32768)
+  return testConstOrs16(-32768/2,-32768/2,-32768/2 | -32768/2)
 }
 #= mid pos | mis pos
 def uint1 ors16_8() {

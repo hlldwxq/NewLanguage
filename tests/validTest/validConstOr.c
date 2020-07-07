@@ -4,7 +4,63 @@ int fail = 0;
 void check(int v,char const *msg) {
   if (!v) {printf("ERROR: Test %s failed\n",msg); fail=1;}
 }
+int oru128_1();
+int oru128_2();
+int oru128_3();
 
+int ors128_2();
+int ors128_3();
+int ors128_4();
+int ors128_5();
+int ors128_6();
+int ors128_7(); 
+int ors128_8();
+
+int oru64_1();
+int oru64_2();
+int oru64_3();
+
+int ors64_2();
+int ors64_3();
+int ors64_4();
+int ors64_5();
+int ors64_6();
+int ors64_7(); 
+int ors64_8();
+
+int oru32_1();
+int oru32_2();
+int oru32_3();
+
+int ors32_2();
+int ors32_3();
+int ors32_4();
+int ors32_5();
+int ors32_6();
+int ors32_7(); 
+int ors32_8();
+
+int oru16_1();
+int oru16_2();
+int oru16_3();
+
+int ors16_2();
+int ors16_3();
+int ors16_4();
+int ors16_5();
+int ors16_6();
+int ors16_7(); 
+int ors16_8();
+
+int oru8_1();
+int oru8_2();
+int oru8_3();
+
+int ors8_4();
+int ors8_5();
+int ors8_6();
+int ors8_7(); 
+int ors8_8();
 
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
 

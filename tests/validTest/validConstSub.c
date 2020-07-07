@@ -5,6 +5,50 @@ void check(int v,char const *msg) {
   if (!v) {printf("ERROR: Test %s failed\n",msg); fail=1;}
 }
 
+int minusu128_1();
+int minusu128_2();
+int minusu128_3();
+
+int minuss128_2();
+int minuss128_3();
+int minuss128_4();
+int minuss128_5();
+
+int minusu64_1();
+int minusu64_2();
+int minusu64_3();
+
+int minuss64_2();
+int minuss64_3();
+int minuss64_4();
+int minuss64_5();
+
+int minusu32_1();
+int minusu32_2();
+int minusu32_3();
+
+int minuss32_2();
+int minuss32_3();
+int minuss32_4();
+int minuss32_5();
+
+int minusu16_1();
+int minusu16_2();
+int minusu16_3();
+
+int minuss16_2();
+int minuss16_3();
+int minuss16_4();
+int minuss16_5();
+
+int minusu8_1();
+int minusu8_2();
+int minusu8_3();
+
+int minuss8_2();
+int minuss8_3();
+int minuss8_4();
+int minuss8_5();
 
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
 

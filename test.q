@@ -1,8 +1,4 @@
-def sint8* t(){
-    return new sint8[3]
-}
-
-def void call(){
-    sint8* b = t()
-    sint8 c = b[5]
+def void test(){
+    sint8* a = new sint8[3]
+    a[0] = 1
 }

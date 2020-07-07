@@ -5,6 +5,63 @@ void check(int v,char const *msg) {
   if (v) {printf("ERROR: Test %s failed\n",msg); fail=1;}
 }
 
+int andu128_1();
+int andu128_2();
+int andu128_3();
+
+int ands128_2();
+int ands128_3();
+int ands128_4();
+int ands128_5();
+int ands128_6();
+int ands128_7(); 
+int ands128_8();
+
+int andu64_1();
+int andu64_2();
+int andu64_3();
+
+int ands64_2();
+int ands64_3();
+int ands64_4();
+int ands64_5();
+int ands64_6();
+int ands64_7(); 
+int ands64_8();
+
+int andu32_1();
+int andu32_2();
+int andu32_3();
+
+int ands32_2();
+int ands32_3();
+int ands32_4();
+int ands32_5();
+int ands32_6();
+int ands32_7(); 
+int ands32_8();
+
+int andu16_1();
+int andu16_2();
+int andu16_3();
+
+int ands16_2();
+int ands16_3();
+int ands16_4();
+int ands16_5();
+int ands16_6();
+int ands16_7(); 
+int ands16_8();
+
+int andu8_1();
+int andu8_2();
+int andu8_3();
+
+int ands8_4();
+int ands8_5();
+int ands8_6();
+int ands8_7(); 
+int ands8_8();
 
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
 

@@ -5,6 +5,55 @@ void check(int v,char const *msg) {
   if (!v) {printf("ERROR: Test %s failed\n",msg); fail=1;}
 }
 
+int mulu128_1();
+int mulu128_2();
+int mulu128_3();
+int muls128_2();
+int muls128_3();
+int muls128_4();
+int muls128_5();
+int muls128_6();
+int muls128_7();
+
+int mulu64_1();
+int mulu64_2();
+int mulu64_3();
+int muls64_2();
+int muls64_3();
+int muls64_4();
+int muls64_5();
+int muls64_6();
+int muls64_7();
+
+int mulu32_1();
+int mulu32_2();
+int mulu32_3();
+int muls32_2();
+int muls32_3();
+int muls32_4();
+int muls32_5();
+int muls32_6();
+int muls32_7();
+
+int mulu16_1();
+int mulu16_2();
+int mulu16_3();
+int muls16_2();
+int muls16_3();
+int muls16_4();
+int muls16_5();
+int muls16_6();
+int muls16_7();
+
+int mulu8_1();
+int mulu8_2();
+int mulu8_3();
+int muls8_2();
+int muls8_3();
+int muls8_4();
+int muls8_5();
+int muls8_6();
+int muls8_7();
 
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
 

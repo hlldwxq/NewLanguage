@@ -15,23 +15,24 @@ void FreeAST::codegenCommand(){
 void DefAST::codegenCommand(){
 
     llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
-    QAlloca* allo = new QAlloca(type,Alloca);
-
-    if(!scope.addSymbol(name,allo)){
-        CommandAST::lerror("repeated variable name");
-    }
+    
 
     QValue* init = value->codegen();
     init = assignCast(init,type);
     if(!init){
         CommandAST::lerror("definition: type cannot be converted");
     }
-    
-    if(type->getIsPointer()){  
+
+    QAlloca* allo = new QAlloca(init->getType(),Alloca); //for null ptr
+    if(!scope.addSymbol(name,allo)){
+        CommandAST::lerror("repeated variable name");
+    }
+
+   /* if(type->getIsPointer()){  
         PointType* varPt = dynamic_cast<PointType*>(type);
         PointType* valuePt = dynamic_cast<PointType*>(init->getType());
         varPt->setArraySize(valuePt->getArraySize());
-    }
+    }*/
 
     Value* store = Builder.CreateStore(init->getValue(), allo->getAlloca());
     if(!store){
@@ -49,11 +50,11 @@ void AssignAST::codegenCommand(){
         lerror("assign: type cannot be converted");
     }
 
-    if(leftV->getType()->getIsPointer()){  
+  /*  if(leftV->getType()->getIsPointer()){  
         PointType* varPt = dynamic_cast<PointType*>(leftV->getType());
         PointType* valuePt = dynamic_cast<PointType*>(rightV->getType());
         varPt->setArraySize(valuePt->getArraySize());
-    }
+    }*/
 
     llvm::Value* store = Builder.CreateStore(rightV->getValue(), leftV->getAlloca());
 

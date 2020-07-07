@@ -33,10 +33,16 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     if(!left->getType()->getIsPointer()){
         error("left expression must be a pointer");
     }
-    
-    Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
-    
+
     PointType* pt = dynamic_cast<PointType*>(left->getType());
+    if(pt->isNull()){
+        error("the pointer has not been init");
+    }
+
+    scope.findArraySize(left->getValue()); //test
+
+    Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
+        
     QType* elementT = pt->getElementType();
     const QAlloca* qv = new QAlloca(elementT,eleptr);
     return qv;
@@ -202,9 +208,10 @@ QValue* NewExprAST::codegen(){
 
     //call malloc normally
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t, type->getElementType()->getLLVMType(), mallocSize,arraySize,nullptr,"");
-    //std::cout<<"the llvm::Value* of new expression: "<<var_malloc<<std::endl;
     Value* result = Builder.Insert(var_malloc);
-    type->setArraySize(arraySize);   //record the size of new
+
+    scope.addArraySize(result,arraySize); // for test
+
     return new QValue(type,var_malloc); 
 }
 

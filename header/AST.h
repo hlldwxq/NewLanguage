@@ -230,7 +230,7 @@ public:
 class PointType : public QType{
     QType* elementType;
     bool isnull;
-    llvm::Value* arraySize;
+   // llvm::Value* arraySize;
 public:
 
     PointType(QType* elementType1,bool isn = false) : QType(true){
@@ -251,16 +251,11 @@ public:
       return getElementType()->compare(pty->getElementType());
     }
 
-    void setArraySize(llvm::Value* size){
-        arraySize = size;
-    }
-
-    llvm::Value* getArraySize(){
-        return arraySize;
-    }
-    
     bool isNull() const{
         return isnull;
+    }
+    void setNull(bool isN){
+        isnull = isN;
     }
 
     bool isConstant() const{

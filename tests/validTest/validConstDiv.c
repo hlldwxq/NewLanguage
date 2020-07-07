@@ -1,5 +1,58 @@
 #include <stdio.h>
+int divu128_1();
+int divu128_2();
 
+int divs128_2();
+int divs128_3();
+int divs128_4();
+int divs128_5();
+int divs128_6();
+int divs128_7();
+int divs128_8();
+
+int divu64_1();
+int divu64_2();
+
+int divs64_2();
+int divs64_3();
+int divs64_4();
+int divs64_5();
+int divs64_6();
+int divs64_7();
+int divs64_8();
+
+int divu32_1();
+int divu32_2();
+
+int divs32_2();
+int divs32_3();
+int divs32_4();
+int divs32_5();
+int divs32_6();
+int divs32_7();
+int divs32_8();
+
+int divu16_1();
+int divu16_2();
+
+int divs16_2();
+int divs16_3();
+int divs16_4();
+int divs16_5();
+int divs16_6();
+int divs16_7();
+int divs16_8();
+
+int divu8_1();
+int divu8_2();
+
+int divs8_2();
+int divs8_3();
+int divs8_4();
+int divs8_5();
+int divs8_6();
+int divs8_7();
+int divs8_8();
 int fail = 0;
 void check(int v,char const *msg) {
   if (!v) {printf("ERROR: Test %s failed\n",msg); fail=1;}
