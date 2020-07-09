@@ -20,7 +20,6 @@ const QAlloca* VariableAST::codegenLeft(){
 const QAlloca* ArrayIndexExprAST::codegenLeft(){
 
     QValue* left = pointer->codegen();
-    Value* leftV = left->getValue();
     QValue* arrI = index->codegen();
     Value* arrIndex = arrI->getValue();
 	
@@ -39,19 +38,30 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     if(pt->isNull()){
         error("the pointer has not been init");
     }
-
-    /*llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
-    Type* t = dataLayOut->getLargestLegalIntType(TheContext);
-    leftV = Builder.CreateFPCast(leftV,llvm::PointerType::get(t,0));*/
+    
     if(doCheck){
-
+        Function *TheFunction = Builder.GetInsertBlock()->getParent();
         Value* arraySize = Builder.CreateStructGEP(left->getValue(),0);
         arraySize = Builder.CreateLoad(arraySize);
+
+        Value* zero = ConstantInt::get(sizet,0,true);
+        Value* cmp1 = Builder.CreateICmpSGE(zero, arraySize);
+
+        BasicBlock *freeBB = BasicBlock::Create(TheContext,"free", TheFunction);
+        BasicBlock *noFreeBB = BasicBlock::Create(TheContext,"noFree", TheFunction);
+        
+        Builder.CreateCondBr(cmp1, freeBB, noFreeBB);
+        Builder.SetInsertPoint(freeBB);
+        callError("the pointer has been freed",line);
+        freeBB = Builder.GetInsertBlock();  
+
+        // normal
+        Builder.SetInsertPoint(noFreeBB);
 
         arrIndex =Builder.CreateIntCast(arrIndex, arraySize->getType(),false);
         Value* cmp = Builder.CreateICmpSGT(arraySize, arrIndex);
 
-        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+        
         BasicBlock *OutBoundBB = BasicBlock::Create(TheContext,"outBound", TheFunction);
         BasicBlock *NormalBB = BasicBlock::Create(TheContext,"normal", TheFunction);
         
@@ -64,6 +74,7 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
         Builder.SetInsertPoint(NormalBB);
 
     }
+
     QType* elementT = pt->getElementType();
     Value* arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
     arrayAddress = Builder.CreateLoad(arrayAddress);
@@ -207,22 +218,20 @@ void intCastCheck(Type* qtype, Value* value, int line){
 QValue* NewExprAST::codegen(){
     
     // get the size of target platform
-    llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
-    Type* t = dataLayOut->getLargestLegalIntType(TheContext);
-    unsigned length = t->getIntegerBitWidth();
+    unsigned length = sizet->getIntegerBitWidth();
 
     if(length==0)
         Bug("does not get datalayout",line);
     //cast arraysize
     Value* arraySize = (size->codegen())->getValue();
-    intCastCheck(t, arraySize,line);
-    arraySize = Builder.CreateIntCast(arraySize,t,false); 
+    intCastCheck(sizet, arraySize,line);
+    arraySize = Builder.CreateIntCast(arraySize,sizet,false); 
 
 
     //cast mallocsize
     Value* mallocSize = ConstantExpr::getSizeOf(type->getElementType()->getLLVMType()); //the return type of getSizeOf is i64
-    intCastCheck(t, mallocSize,line);
-    mallocSize = Builder.CreateIntCast(mallocSize,t,false); 
+    intCastCheck(sizet, mallocSize,line);
+    mallocSize = Builder.CreateIntCast(mallocSize,sizet,false); 
     
 
     //check overflow when mul arraysize and malloc size
@@ -230,33 +239,25 @@ QValue* NewExprAST::codegen(){
     QType* qt = new IntType(false,length);
     Value* mulResult = starOp->OverFlowCheck(new QValue(qt,arraySize),new QValue(qt,mallocSize));
 
-    //type->setStructType(StructType::create({t, llvm::PointerType::get(type->getElementType()->getLLVMType(),0)}));
-
-    Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
+    Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
     Value* record = Builder.Insert(var_malloc);
     
-
-    // struct[ arraysize(sizet) , arrayAddress(elementT*) ]
     plus* plusOp = new plus(line);
-    //record = Builder.CreatePtrToInt(record,t); //make two elements have the same type
-    Value* sSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(arraySize->getType()),t,false);
-    Value* mSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(record->getType()),t,false);
+    Value* sSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(arraySize->getType()),sizet,false);
+    Value* mSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(record->getType()),sizet,false);
     Value* plusResult = plusOp->OverFlowCheck(new QValue(qt,sSize),new QValue(qt,mSize));
 
 
     // call malloc normally
-    //StructType* mtype = StructType::create({t,type->getLLVMType()});
-    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t,type->getStructType(),plusResult,nullptr,nullptr,"");
+    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),plusResult,nullptr,nullptr,"");
     Value* result = Builder.Insert(struct_malloc);
     
 
     // assign
     Value* sizeAddress = Builder.CreateStructGEP(result,0);
-    //Value* sizeAddress = Builder.CreateGEP(t, result, ConstantInt::get(t,0));
     Builder.CreateStore(arraySize,sizeAddress);
 
     Value* arrayAddress = Builder.CreateStructGEP(result,1);
-    //Value* arrayAddress = Builder.CreateGEP(t, result, ConstantInt::get(t,1));
     Builder.CreateStore(record,arrayAddress);
     
     return new QValue(type,result); 

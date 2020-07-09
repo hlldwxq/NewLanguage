@@ -9,6 +9,7 @@ IRBuilder<> Builder(TheContext);
 std::unique_ptr<Module> TheModule;
 std::unique_ptr<TargetMachine> TM;
 bool doCheck;
+llvm::Type* sizet;
 Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
 
 std::map<int,std::string> maxIntSignedValue;
@@ -212,6 +213,9 @@ void initModule(std::string fileName){
     TheModule = std::make_unique<Module>(fileName, TheContext); 
     TM =std::unique_ptr<TargetMachine>(EngineBuilder().selectTarget());
     TheModule->setDataLayout(TM->createDataLayout());
+
+    llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+    sizet = dataLayOut->getLargestLegalIntType(TheContext);
 }
 //does user need dnamic check
 void initCheck(std::string check){

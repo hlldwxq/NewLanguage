@@ -8,7 +8,14 @@ void FreeAST::codegenCommand(){
     if(!p->getType()->getIsPointer()){
         lerror("what will be freed must be a pointer");
     }
-    Instruction* var_free = CallInst::CreateFree(p->getValue(),Builder.GetInsertBlock());
+
+    Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
+    Builder.CreateStore(ConstantInt::get(sizet,-1,true),arraySize);
+
+    Value* arrayAddress = Builder.CreateStructGEP(p->getValue(),1);
+    arrayAddress = Builder.CreateLoad(arrayAddress);
+
+    Instruction* var_free = CallInst::CreateFree(arrayAddress,Builder.GetInsertBlock());
     Builder.Insert(var_free);
 }
 

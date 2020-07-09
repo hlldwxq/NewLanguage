@@ -56,6 +56,7 @@ extern IRBuilder<> Builder;
 extern std::unique_ptr<Module> TheModule;
 extern std::unique_ptr<TargetMachine> TM;
 extern bool doCheck;
+extern llvm::Type* sizet;
 
 //the scope is at the end of the file
 
