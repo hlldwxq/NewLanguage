@@ -11,8 +11,6 @@ std::unique_ptr<TargetMachine> TM;
 bool doCheck;
 Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
 
-llvm::Value* testNewV;
-
 std::map<int,std::string> maxIntSignedValue;
 std::map<int,std::string> minIntSignedValue;
 std::map<int,std::string> maxIntUnSignedValue;
@@ -345,6 +343,7 @@ QValue* assignCast(QValue* varValue, QType* leftT){
             if(leftP->isNull()){
                 leftP->setNull( rightP->isNull());
             }
+            
         }
     }
 
@@ -390,6 +389,7 @@ void callError(std::string info, int line){
 
     Builder.CreateUnreachable();
 }
+
 
 /////////////////////save old code///////////////////
 //used when constant num is a operand of binaty operator and anther operand is not contant

@@ -5,8 +5,7 @@
 // LeftValue  is also expression
 class LeftValueAST : public ExprAST{
 public:
-    LeftValueAST(ASTType type, int l):ExprAST(type,l){
-    }
+    LeftValueAST(ASTType type, int l):ExprAST(type,l){}
     virtual ~LeftValueAST(){}
     virtual void printAST(int level=0){}
     virtual QValue* codegen(); //{ return NULL; }

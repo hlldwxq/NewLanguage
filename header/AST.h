@@ -57,7 +57,6 @@ extern std::unique_ptr<Module> TheModule;
 extern std::unique_ptr<TargetMachine> TM;
 extern bool doCheck;
 
-extern llvm::Value* testNewV;//teste
 //the scope is at the end of the file
 
 [[noreturn]] void error(std::string msg);
@@ -232,19 +231,36 @@ public:
 class PointType : public QType{
     QType* elementType;
     bool isnull;
-   // llvm::Value* arraySize;
+    StructType* stype;
+    void initStruct(){
+        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+        Type* t = dataLayOut->getLargestLegalIntType(TheContext);
+        stype = StructType::get(TheContext,{t, llvm::PointerType::get(elementType->getLLVMType(),0)});
+    }
 public:
-
     PointType(QType* elementType1,bool isn = false) : QType(true){
         elementType = elementType1;
         isnull = isn;
+        initStruct();
     }
-    QType* getElementType() const{
+
+    QType* const getElementType() const{
         return elementType;
     }
-    llvm::PointerType* getLLVMType() const{
-        return elementType->getLLVMType()->getPointerTo(0);   
+
+    StructType* getStructType() const{
+        return stype;
     }
+
+    llvm::PointerType* getLLVMType() const{
+        //return llvm::PointerType::get(elementType->getLLVMType(),0); 
+        return llvm::PointerType::get(stype,0);   
+    }
+
+    void setStructType(StructType* s){
+        stype = s;
+    }
+
     void printAST() const;
 
     virtual bool compare(QType const* ty) const {

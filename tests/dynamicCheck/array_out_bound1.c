@@ -1,8 +1,6 @@
 #include <stdio.h>
-void test();
-
+void errorDef();
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
-
-    test();
+    errorDef();
     return 0;
 }

@@ -174,11 +174,14 @@ public:
             error("boolean (uint1) cannot be as the operand of arithmatic operand at Line: "+std::to_string(line));
         }
 
-        if(doCheck)
-            OverFlowCheck(a,b);
-        IntType* getSign = dynamic_cast<IntType*>(a->getType());
-        llvm::Value* llvm_result = gen_llvm(getSign->getSigned() , a->getValue() , b->getValue());
-        return new QValue(a->getType(), llvm_result);
+        if(doCheck){
+            llvm::Value* result = OverFlowCheck(a,b);
+            return new QValue(a->getType(), result);
+        }else{
+            IntType* getSign = dynamic_cast<IntType*>(a->getType());
+            llvm::Value* llvm_result = gen_llvm(getSign->getSigned() , a->getValue() , b->getValue());
+            return new QValue(a->getType(), llvm_result);
+        }
     }
 
     virtual QValue* constantCodegen(llvm::APInt left, llvm::APInt right){
@@ -205,14 +208,14 @@ public:
         return new QValue(qtype,constInt);
     }
 
-    virtual void OverFlowCheck(QValue* left, QValue* right){
+    virtual llvm::Value* OverFlowCheck(QValue* left, QValue* right){
         
         std::vector<Type*> args_type;
         args_type.push_back(left->getType()->getLLVMType()); 
         args_type.push_back(right->getType()->getLLVMType());
         
         Function* overFlow = overFlowDeclare(args_type,dynamic_cast<IntType*>(left->getType())->getSigned());
-        if (!overFlow) return;
+        if (!overFlow) return gen_llvm(dynamic_cast<IntType*>(left->getType())->getSigned(),left->getValue(),right->getValue());
         
         Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
@@ -234,6 +237,7 @@ public:
 
         // normal
         Builder.SetInsertPoint(normalBB);
+        return Builder.CreateExtractValue(checkCall,0);
         
     }
 };
@@ -381,7 +385,7 @@ class division : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
-    void OverFlowCheck(QValue* left,QValue* right);
+    llvm::Value* OverFlowCheck(QValue* left,QValue* right);
     division(int line):ArithOperator(Operators::division,line){}
 };  // /
 

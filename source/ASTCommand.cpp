@@ -13,12 +13,12 @@ void FreeAST::codegenCommand(){
 }
 
 void DefAST::codegenCommand(){
-
-    llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
     
+    llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
 
     QValue* init = value->codegen();
     init = assignCast(init,type);
+        
     if(!init){
         CommandAST::lerror("definition: type cannot be converted");
     }
@@ -28,40 +28,27 @@ void DefAST::codegenCommand(){
         CommandAST::lerror("repeated variable name");
     }
 
-   /* if(type->getIsPointer()){  
-        PointType* varPt = dynamic_cast<PointType*>(type);
-        PointType* valuePt = dynamic_cast<PointType*>(init->getType());
-        varPt->setArraySize(valuePt->getArraySize());
-    }*/
+    Value* initV = init->getValue();
+    Builder.CreateStore(initV, allo->getAlloca());
 
-    Value* store = Builder.CreateStore(init->getValue(), allo->getAlloca());
-    if(!store){
-        Bug("failed store",1);
-    }
 }
 
 void AssignAST::codegenCommand(){
-
-    const QAlloca* leftV = left->codegenLeft();
+    
     QValue* rightV = right->codegen();
+    const QAlloca* leftV = left->codegenLeft();
 
     rightV = assignCast(rightV,leftV->getType());
     if(!rightV){
         lerror("assign: type cannot be converted");
     }
 
-  /*  if(leftV->getType()->getIsPointer()){  
-        PointType* varPt = dynamic_cast<PointType*>(leftV->getType());
-        PointType* valuePt = dynamic_cast<PointType*>(rightV->getType());
-        varPt->setArraySize(valuePt->getArraySize());
-    }*/
-
-    llvm::Value* store = Builder.CreateStore(rightV->getValue(), leftV->getAlloca());
+    llvm::Value* rightValue = rightV->getValue();
+    llvm::Value* store = Builder.CreateStore(rightValue, leftV->getAlloca());
 
     if(!store){
         Bug("failed store",0);
     }
-
 }
 
 void ReturnAST::codegenCommand(){
@@ -145,6 +132,7 @@ void IfAST::codegenCommand(){
 }
 
 void ForAST::codegenCommand(){
+
 
     if(isRet()||isBreak())
         lerror("the command in for loop cannot be total return or break");

@@ -1,7 +1,7 @@
 #include "../header/Operator.h"
 #include "../header/AST.h"
 #include "../header/ASTExpr.h"
-
+/*
 bool bigger(std::string left,std::string right){
     assert(left!=right);
     bool LisPos = left[0] == '+';
@@ -133,7 +133,7 @@ std::string plus1(std::string l,std::string r){
         result = removeExtra0(result);
 	}
 	return result;
-}
+}*/
 
 //overflow
 Function* plus::overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
@@ -166,7 +166,7 @@ Function* star::overFlowDeclare(std::vector<Type*> args_type, bool isSigned){
     return overFlow;
 }
 
-void division::OverFlowCheck(QValue* left,QValue* right){
+llvm::Value* division::OverFlowCheck(QValue* left,QValue* right){
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
     // check div 0
@@ -186,33 +186,32 @@ void division::OverFlowCheck(QValue* left,QValue* right){
     Builder.SetInsertPoint(divnormalBB);
     //check overflow
     IntType* leftT = dynamic_cast<IntType*>(left->getType());
-    if(leftT->getSigned()==false){
-        return;
+    if(leftT->getSigned()!=false){
+    
+        BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
+        BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
+        
+        // check if right is -1
+        llvm::Value* negOne = ConstantInt::get(right->getType()->getLLVMType(), -1);
+        llvm::Value* ifDivOne = Builder.CreateICmpEQ(right->getValue(), negOne, "cmptmp");
+
+        // check if left is the min
+        llvm::Value* negMin = ConstantInt::get(TheContext,APInt::getSignedMinValue(leftT->getWidth()));
+        llvm::Value* ifMin = Builder.CreateICmpEQ(left->getValue(), negMin, "cmptmp");
+
+        llvm::Value* isOverFlow = Builder.CreateAnd(ifDivOne,ifMin);
+        Builder.CreateCondBr(isOverFlow, overflowBB, normalBB);
+
+        // overflow
+        Builder.SetInsertPoint(overflowBB);
+        callError("overflow",line);
+        overflowBB = Builder.GetInsertBlock();  
+
+        // normal
+        Builder.SetInsertPoint(normalBB);
     }
 
-    BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
-    BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
-    
-    // check if right is -1
-    llvm::Value* negOne = ConstantInt::get(right->getType()->getLLVMType(), -1);
-    llvm::Value* ifDivOne = Builder.CreateICmpEQ(right->getValue(), negOne, "cmptmp");
-
-    // check if left is the min
-    //long long minSize = -(1L<<(leftT->getWidth()-1));
-    //llvm::Value* negMin = ConstantInt::get(right->getType()->getLLVMType(), minSize);
-    llvm::Value* negMin = ConstantInt::get(TheContext,APInt::getSignedMinValue(leftT->getWidth()));
-    llvm::Value* ifMin = Builder.CreateICmpEQ(left->getValue(), negMin, "cmptmp");
-
-    llvm::Value* isOverFlow = Builder.CreateAnd(ifDivOne,ifMin);
-    Builder.CreateCondBr(isOverFlow, overflowBB, normalBB);
-
-    // overflow
-    Builder.SetInsertPoint(overflowBB);
-    callError("overflow",line);
-    overflowBB = Builder.GetInsertBlock();  
-
-    // normal
-    Builder.SetInsertPoint(normalBB);
+    return gen_llvm(leftT->getSigned(), left->getValue(), right->getValue());    
 }
 
 Function* division::overFlowDeclare(std::vector<Type*> args_type, bool isSigned){

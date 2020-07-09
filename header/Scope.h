@@ -16,27 +16,7 @@ class Scope{
     const T3* retType = NULL;
     llvm::BasicBlock* breakBB = NULL;
 
-    std::map<llvm::Value*,llvm::Value*> arraySize;
-
 public:
-
-    void addArraySize(llvm::Value* arr,llvm::Value* size){
-        arraySize[arr] = size;
-    }
-
-    llvm::Value* findArraySize(llvm::Value* arr){
-        std::cout<< "; what are in map:"<<std::endl;
-        for(auto &a : arraySize){
-            std::cout<<"; "<< a.first<<std::endl;
-        }
-        std::cout<< "; what we are finding:"<<std::endl;
-        std::cout<<"; " <<arr<<std::endl;
-
-        if(arraySize.find(arr)!=arraySize.end()){
-            return arraySize[arr]; //cannot get the line number, thus ask codegen to emit error info
-        }
-        return NULL;
-    }
 
     void addInitFunction(T1* f){
         initFunction.push_back(f);

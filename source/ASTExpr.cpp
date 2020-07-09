@@ -20,7 +20,7 @@ const QAlloca* VariableAST::codegenLeft(){
 const QAlloca* ArrayIndexExprAST::codegenLeft(){
 
     QValue* left = pointer->codegen();
-
+    Value* leftV = left->getValue();
     QValue* arrI = index->codegen();
     Value* arrIndex = arrI->getValue();
 	
@@ -30,6 +30,7 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
             error("the index of array cannot be negative");
         }
     }
+
     if(!left->getType()->getIsPointer()){
         error("left expression must be a pointer");
     }
@@ -39,12 +40,36 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
         error("the pointer has not been init");
     }
 
-    scope.findArraySize(left->getValue()); //test
+    /*llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+    Type* t = dataLayOut->getLargestLegalIntType(TheContext);
+    leftV = Builder.CreateFPCast(leftV,llvm::PointerType::get(t,0));*/
+    if(doCheck){
 
-    Value* eleptr = Builder.CreateGEP(cast<PointerType>(left->getValue()->getType()->getScalarType())->getElementType(), left->getValue(), arrIndex);
+        Value* arraySize = Builder.CreateStructGEP(left->getValue(),0);
+        arraySize = Builder.CreateLoad(arraySize);
+
+        arrIndex =Builder.CreateIntCast(arrIndex, arraySize->getType(),false);
+        Value* cmp = Builder.CreateICmpSGT(arraySize, arrIndex);
+
+        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+        BasicBlock *OutBoundBB = BasicBlock::Create(TheContext,"outBound", TheFunction);
+        BasicBlock *NormalBB = BasicBlock::Create(TheContext,"normal", TheFunction);
         
+        Builder.CreateCondBr(cmp, NormalBB, OutBoundBB);
+        Builder.SetInsertPoint(OutBoundBB);
+        callError("array out of bound",line);
+        OutBoundBB = Builder.GetInsertBlock();  
+
+        // normal
+        Builder.SetInsertPoint(NormalBB);
+
+    }
     QType* elementT = pt->getElementType();
+    Value* arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
+    arrayAddress = Builder.CreateLoad(arrayAddress);
+    llvm::Value* eleptr = Builder.CreateGEP(elementT->getLLVMType(), arrayAddress,arrIndex);   
     const QAlloca* qv = new QAlloca(elementT,eleptr);
+
     return qv;
  
 }
@@ -185,7 +210,6 @@ QValue* NewExprAST::codegen(){
     llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
     Type* t = dataLayOut->getLargestLegalIntType(TheContext);
     unsigned length = t->getIntegerBitWidth();
-    // dataLayOut->getTypeSizeInBits(t).getFixedSize();
 
     if(length==0)
         Bug("does not get datalayout",line);
@@ -204,16 +228,38 @@ QValue* NewExprAST::codegen(){
     //check overflow when mul arraysize and malloc size
     star* starOp = new star(line);
     QType* qt = new IntType(false,length);
-    starOp->OverFlowCheck(new QValue(qt,arraySize),new QValue(qt,mallocSize));
+    Value* mulResult = starOp->OverFlowCheck(new QValue(qt,arraySize),new QValue(qt,mallocSize));
 
-    //call malloc normally
-    Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t, type->getElementType()->getLLVMType(), mallocSize,arraySize,nullptr,"");
-    Value* result = Builder.Insert(var_malloc,"new");
+    //type->setStructType(StructType::create({t, llvm::PointerType::get(type->getElementType()->getLLVMType(),0)}));
 
-    testNewV = result; // for call test
-    scope.addArraySize(result,arraySize); // for test
+    Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
+    Value* record = Builder.Insert(var_malloc);
+    
 
-    return new QValue(type,var_malloc); 
+    // struct[ arraysize(sizet) , arrayAddress(elementT*) ]
+    plus* plusOp = new plus(line);
+    //record = Builder.CreatePtrToInt(record,t); //make two elements have the same type
+    Value* sSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(arraySize->getType()),t,false);
+    Value* mSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(record->getType()),t,false);
+    Value* plusResult = plusOp->OverFlowCheck(new QValue(qt,sSize),new QValue(qt,mSize));
+
+
+    // call malloc normally
+    //StructType* mtype = StructType::create({t,type->getLLVMType()});
+    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),t,type->getStructType(),plusResult,nullptr,nullptr,"");
+    Value* result = Builder.Insert(struct_malloc);
+    
+
+    // assign
+    Value* sizeAddress = Builder.CreateStructGEP(result,0);
+    //Value* sizeAddress = Builder.CreateGEP(t, result, ConstantInt::get(t,0));
+    Builder.CreateStore(arraySize,sizeAddress);
+
+    Value* arrayAddress = Builder.CreateStructGEP(result,1);
+    //Value* arrayAddress = Builder.CreateGEP(t, result, ConstantInt::get(t,1));
+    Builder.CreateStore(record,arrayAddress);
+    
+    return new QValue(type,result); 
 }
 
 QValue* NullExprAST::codegen(){
@@ -258,9 +304,7 @@ QValue* CallExprAST::codegen_internal(bool is_cmd) {
       Builder.CreateCall(func, ArgsV);
       return NULL;
     } else {
-        Value* c = Builder.CreateCall(func, ArgsV, "calltmp");
-        //Builder.CreatePtrDiff(c, testNewV, "cmpValue");  // I try to use this compare two values, but 
-        return new QValue(returnType->getType(),c);
+        return new QValue(returnType->getType(),Builder.CreateCall(func, ArgsV, "calltmp"));
     }
 
 }
