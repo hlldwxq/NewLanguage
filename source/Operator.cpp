@@ -250,32 +250,10 @@ QValue* negative::codegen(QValue* operand){
 
     if(type->isConstant()){
         ConstantType* constType = dynamic_cast<ConstantType*>(type);
-        if(constType->getValue()!=""){
-            std::string str = constType->getValue();
-            if(str=="0"){
-                error("neg zero is invalid at line: "+std::to_string(line));
-            }else if(str[0]=='-'){
-                str.erase(0,1); //when a valid neg num get absolute value, it must be in the range
-            }else{
-                str = "-"+str;
-                if(str.length()>=39 &&!checkRange(str,true)){
-                    error("invalid number because it is too big or too small at line: "+std::to_string(line));
-                }
-            }
-            
-            return std::make_unique<NumberExprAST>(str,line)->codegen();
-        }else{
-            minus* m = new minus(line);
-            llvm::APInt result = m->gen_constant(llvm::APInt(constType->getWidth(),"0",10),constType->getApValue());
-            // m->constantCodegen will help check range, do not need to do it here
-            if(result.getBitWidth()>128 && checkRange(result,true)){
-                error("invalid number because it is too big or too small at line: "+std::to_string(line));
-            }
-            ConstantType* constType = new ConstantType(result);
-            llvm::Value* constInt =  ConstantInt::get(TheContext, result);
-            return new QValue(constType,constInt);
-        }
-        
+        IntConst result = constType->getValue().uminus();
+        ConstantType* resType = new ConstantType(result);
+        llvm::Value* constInt =  ConstantInt::get(TheContext, result.getValue());
+        return new QValue(resType,constInt);
     }
     IntType* intType = dynamic_cast<IntType*>(type);
     if(intType->getSigned()!=true){

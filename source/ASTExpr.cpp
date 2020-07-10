@@ -23,11 +23,17 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     QValue* arrI = index->codegen();
     Value* arrIndex = arrI->getValue();
 	
+
+    // TODO Why can't you use the same code as for unary/binary operand, or function call, that would convert
+    //        whatever operand to uintN?
+    //        -> Almost the code used for function call, except that you also need a (checked) downcast
+    //    MAYBE you can share some code here?
+
     if(arrI->getType()->isConstant()){
-        std::string ind = dynamic_cast<ConstantType*>(arrI->getType())->getValue();
-        if(ind[0]=='-'){
-            error("the index of array cannot be negative");
-        }
+      IntConst ind = dynamic_cast<ConstantType*>(arrI->getType())->getValue();
+      if (ind.isNegative()) {
+        error("the index of array cannot be negative");
+      }
     }
 
     if(!left->getType()->getIsPointer()){
@@ -40,6 +46,17 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     }
     
     if(doCheck){
+
+        /*
+            if (index < size) OK
+            else {
+              if (ptr==NULL) error(access after free)
+              else error(index out of bounds)
+            }
+
+            this would require free to set size=0 and ptr=NULL
+        */
+
         Function *TheFunction = Builder.GetInsertBlock()->getParent();
         Value* arraySize = Builder.CreateStructGEP(left->getValue(),0);
         arraySize = Builder.CreateLoad(arraySize);
@@ -96,7 +113,7 @@ QValue* LeftValueAST::codegen() {
 
 QValue* NumberExprAST::codegen(){
     ConstantType* qtype = new ConstantType(value);
-    llvm::Value* constInt = ConstantInt::get(TheContext,qtype->getApValue());
+    llvm::Value* constInt = ConstantInt::get(TheContext,qtype->getValue().getValue());
     return new QValue(qtype,constInt);
 }
 
@@ -131,7 +148,7 @@ QValue* BinaryExprAST::codegen(){
     if(leftQV->getType()->isConstant() && rightQV->getType()->isConstant()){
         ConstantType* left = dynamic_cast<ConstantType*>(leftQV->getType());
         ConstantType* right = dynamic_cast<ConstantType*>(rightQV->getType());
-        return op->constantCodegen(left->getApValue(),right->getApValue());
+        return op->constantCodegen(left->getValue(),right->getValue());
     }
 
     if(rightQV->getType()->compare(new IntType(false,1)) && !leftQV->getType()->compare(new IntType(false,1))){
@@ -269,6 +286,16 @@ QValue* NewExprAST::codegen(){
 
     // new code
     Value* space = ConstantExpr::getSizeOf(type->getStructType());
+
+    /* TODO the names record and space are confusing here
+        Current naming:
+          record: holds the memory for the array elements
+          space: holds the struct for the array meta-info
+
+        structures are sometimes also called records!
+        space suggests the space for the array itself!
+
+    */
 
     // call malloc normally
     Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),space,nullptr,nullptr,"");

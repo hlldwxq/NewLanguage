@@ -284,6 +284,141 @@ public:
 
 };
 
+/*
+  Arbitrary precision signed integer type
+
+  TODO: Move to own file
+*/
+class IntConst {
+private:
+  llvm::APInt apValue;
+
+  IntConst(llvm::APInt _apValue) : apValue(_apValue) {}
+
+  template<typename OP> llvm::APInt binop_adjust(OP f, llvm::APInt const &a, llvm::APInt const &b) const {
+    unsigned width = std::max(a.getBitWidth(),b.getBitWidth());
+    auto aa = a.sextOrTrunc(width);
+    auto bb = b.sextOrTrunc(width);
+    return f(aa,bb);
+  }
+
+  template<typename OP> bool cmpop_adjust(OP f, llvm::APInt const &a, llvm::APInt const &b) const {
+    unsigned width = std::max(a.getBitWidth(),b.getBitWidth());
+    auto aa = a.sextOrTrunc(width);
+    auto bb = b.sextOrTrunc(width);
+    return f(aa,bb);
+  }
+
+
+  template<typename OP> llvm::APInt binop_adjust_ovf(OP f, llvm::APInt const &a, llvm::APInt const &b) const {
+    unsigned width = std::max(a.getBitWidth(),b.getBitWidth());
+
+    llvm::APInt res;
+    while (true) {
+      auto aa = a.sextOrTrunc(width);
+      auto bb = b.sextOrTrunc(width);
+
+      bool ov;
+      res = f(aa,bb,ov);
+      if (!ov) break;
+
+      if (width > std::numeric_limits<unsigned>::max() / 2) error("Constant arithmetic overflow"); // Maybe APInt will hit some limits before that. TODO: Check if it is undefined behaviour then!
+
+      width*=2; // width++
+    };
+    return res;
+  }
+
+
+public:
+  IntConst(std::string v) {
+    assert(v!="");
+    bool sgn = v[0]=='-';
+
+    StringRef vv = v;
+    if (vv.getAsInteger(10,apValue)) Bug("Invalid integer, but parser should have ensured a valid one here!",0);
+
+    if (!sgn) {
+      auto minw = apValue.getActiveBits() + 1;
+      apValue = apValue.zextOrTrunc(minw);
+    }
+  }
+
+  unsigned getWidth() const {return apValue.getBitWidth();}
+  bool isNegative() const {return apValue.isNegative();}
+  bool isZero() const {return apValue == 0;}
+
+  llvm::APInt getValue() const {return apValue;}
+
+  unsigned minSignedWidth() const {
+    unsigned minw = apValue.getMinSignedBits();
+
+    unsigned res = 8;
+    while (res<minw) res*=2;
+
+    return res;
+  }
+
+  unsigned minUnsignedWidth() const {
+    if (isNegative()) Bug("Cannot interpret negative const as unsigned (should be detected further up, where proper lineno is available)",0);
+    unsigned minw = apValue.getActiveBits();
+
+    unsigned res = 8;
+    while (res<minw) res*=2;
+
+    return res;
+  }
+
+  unsigned minWidth(bool isSigned) const { return isSigned?minSignedWidth():minUnsignedWidth(); }
+
+  llvm::APInt getAlignedValue(bool isSigned, unsigned width=0) const {
+    unsigned mw = minWidth(isSigned);
+    if (width==0) width=mw;
+    else if (width < mw) Bug("width too small (should be checked further up where lineo is available)",0);
+
+    return apValue.sextOrTrunc(width);
+  }
+
+  IntConst uminus() const {
+    llvm::APInt z = llvm::APInt(getWidth(),"0",10);
+    return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.ssub_ov(b,ov);},z,apValue);
+  }
+
+  IntConst plus(IntConst const& b) const {  return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.sadd_ov(b,ov);},apValue,b.getValue()); }
+  IntConst minus(IntConst const& b) const { return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.ssub_ov(b,ov);},apValue,b.getValue()); }
+  IntConst mul(IntConst const& b) const {   return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.smul_ov(b,ov);},apValue,b.getValue()); }
+  IntConst div(IntConst const& b) const {   return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.sdiv_ov(b,ov);},apValue,b.getValue()); }
+  IntConst rem(IntConst const& b) const {   return binop_adjust([](APInt a, APInt b){return a.srem(b);},apValue,b.getValue()); }
+
+  bool eq(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.eq(b);},apValue,b.getValue()); }
+  bool ne(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.ne(b);},apValue,b.getValue()); }
+  bool lt(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.slt(b);},apValue,b.getValue()); }
+  bool gt(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.sgt(b);},apValue,b.getValue()); }
+  bool le(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.sle(b);},apValue,b.getValue()); }
+  bool ge(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.sge(b);},apValue,b.getValue()); }
+
+
+  IntConst bit_and(IntConst const &b) const {
+    unsigned width = std::max(apValue.getBitWidth(),b.getValue().getBitWidth());
+    auto aa = apValue.sextOrTrunc(width);
+    auto bb = b.getValue().sextOrTrunc(width);
+
+    return IntConst(aa&=bb);
+  }
+
+  IntConst bit_or(IntConst const &b) const {
+    unsigned width = std::max(apValue.getBitWidth(),b.getValue().getBitWidth());
+    auto aa = apValue.sextOrTrunc(width);
+    auto bb = b.getValue().sextOrTrunc(width);
+
+    return IntConst(aa|=bb);
+  }
+
+};
+
+
+
+
 //The reason why I need the type is becasue,like in the cast:
 //uint8 u2 = 9     uint8 u1 = 3 + 8 - u2
 //if there is no constantNumber, type of 3+8 will be sint8
@@ -291,43 +426,20 @@ public:
 //so it believes that singed cannot plus unsigned 
 class ConstantType : public QType{
 private:
-    llvm::APInt apValue;
-    std::string value;
-    bool isNeg;
-    int width ;
+    IntConst value;
+
 public:
-    ConstantType(std::string v):QType(false){
-        value = v;
-        
-        if(v[0]=='-'){
-            isNeg = true;
-        }else{
-            isNeg = false;
-        }
-        width = getBitOfInt(value, true);  //the initial sign of constant num is sigend 
-        assert(width<=256);
-        //printf("; width : %d  %s\n",width,value.c_str());
-        apValue = llvm::APInt(width, value, 10);
-        //apValue.print(outs(),true);
+    ConstantType(std::string v) : QType(false), value(v) { }
+    ConstantType(IntConst v) : QType(false), value(v) {
     }
-    ConstantType(llvm::APInt ap):QType(false){
-        apValue = ap;
-        isNeg = ap.isNegative();
-        width = ap.getBitWidth();
-        value = "";
-    }
-    std::string getValue() const{
+    IntConst getValue() const {
         return value;
     }
-    llvm::APInt getApValue() const{
-        
-        return apValue;
-    }
-    int getWidth() const{
-        return width;
+    unsigned  getWidth() const{
+        return value.getWidth();
     }
     bool isNegative() const{
-        return isNeg;
+        return value.isNegative();
     }
     bool isConstant() const{
         return true;
@@ -336,7 +448,7 @@ public:
         return false;
     }
     llvm::Type* getLLVMType() const{
-        return (new IntType(isNeg,width))->getLLVMType();
+        return IntType(isNegative(),getWidth()).getLLVMType();
     }
 
     void printAST() const;
@@ -345,11 +457,17 @@ public:
         if(!ty->isConstant())
             return false;
         ConstantType const* ct = dynamic_cast<ConstantType const*>(ty);
-        if(value!="" && ct->getValue()!="" && ct->getValue()==value)
-            return true;
-        else
-            return apValue == ct->getApValue(); //test to check
+
+        return value.eq(ct->getValue()); //test to check
+
+//         if(value!="" && ct->getValue()!="" && ct->getValue()==value)
+//             return true;
+//         else
+//             return apValue == ct->getApValue(); //test to check
     }
+
+
+
 };
 
 class QAlloca{

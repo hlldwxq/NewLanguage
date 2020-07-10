@@ -260,11 +260,20 @@ QValue* constAdjustSign(QValue* num, bool isSigned){
     assert(num->getType()->isConstant());
 
     ConstantType* type = dynamic_cast<ConstantType*>(num->getType());
+
     if(isSigned==false){
         if(type->isNegative()){
-            return NULL;
+            return NULL; // Cannot convert negative const to unsigned
         }
     }
+
+    llvm::APInt alignedVal = type->getValue().getAlignedValue(isSigned);
+    llvm::Value* constInt = ConstantInt::get(TheContext,alignedVal);
+    IntType* t = new IntType(isSigned,alignedVal.getBitWidth()); //get suitable type
+
+    return new QValue(t,constInt);
+
+/*
     int width = type->getWidth();
     if(type->getValue()!=""){
         // the constant num is a real constant num,we just need to get a new width based on the sign
@@ -286,7 +295,7 @@ QValue* constAdjustSign(QValue* num, bool isSigned){
         }
     }
 
-    return new QValue(t,constInt);
+    return new QValue(t,constInt);*/
 }
 
 QValue* upCast(QValue* qv, IntType* type){

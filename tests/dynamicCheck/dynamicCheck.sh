@@ -6,7 +6,7 @@ function fail() {
 }
 function toUnix(){
   FILE=$1
-  dos2unix $FILE
+  dos2unix $FILE 2>/dev/null
 }
 function do_test() {
   FILE=$1

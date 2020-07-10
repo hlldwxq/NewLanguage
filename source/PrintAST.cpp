@@ -28,7 +28,7 @@ void PointType::printAST() const{
 }
 
 void ConstantType::printAST() const{
-    printf("%s",value.c_str());
+    printf("%s",/*value.c_str()*/"<const-value>"); // TODO: implement!
 }
 
 void exclamation::printAST(){

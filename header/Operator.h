@@ -44,7 +44,7 @@ class BOperator{
     public:
     virtual Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right) = 0;
     virtual QValue* codegen(QValue* a, QValue* b) = 0;
-    virtual QValue* constantCodegen(llvm::APInt left, llvm::APInt right) = 0;
+    virtual QValue* constantCodegen(IntConst left, IntConst right) = 0;
     virtual void printAST() = 0;
     virtual Operators getOpType(){
         return opType;
@@ -57,7 +57,7 @@ class BOperator{
 
 class CompareOperator : public BOperator{
     public:
-    virtual bool gen_constant(llvm::APInt left, llvm::APInt right) = 0;
+    virtual bool gen_constant(IntConst left, IntConst right) = 0;
     virtual void printAST() =0;
     virtual Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right) = 0;
     
@@ -69,12 +69,7 @@ class CompareOperator : public BOperator{
         return new QValue(new IntType(false,1) , llvm_result);
     }
 
-    virtual QValue* constantCodegen(llvm::APInt left, llvm::APInt right){
-        if(left.getBitWidth()>right.getBitWidth()){
-            right = right.sext(left.getBitWidth());
-        }else if(left.getBitWidth()<right.getBitWidth()){
-            left = left.sext(right.getBitWidth());
-        }
+    virtual QValue* constantCodegen(IntConst left, IntConst right){
         bool result = gen_constant(left,right);
         int i = result ? true : false;
         IntType* qtype = new IntType(false,1);
@@ -85,7 +80,7 @@ class CompareOperator : public BOperator{
 
 class equal_sign : public CompareOperator{
     public:
-    bool gen_constant(llvm::APInt left,llvm::APInt right){
+    bool gen_constant(IntConst left, IntConst right){
         return left.eq(right);
     }
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
@@ -95,7 +90,7 @@ class equal_sign : public CompareOperator{
 
 class not_equal : public CompareOperator{
     public:
-    bool gen_constant(llvm::APInt left,llvm::APInt right){
+    bool gen_constant(IntConst left, IntConst right){
         return left.ne(right);
     }
 
@@ -106,8 +101,8 @@ class not_equal : public CompareOperator{
 
 class less_equal : public CompareOperator{
     public:
-    bool gen_constant(llvm::APInt left,llvm::APInt right){
-        return left.sle(right);
+    bool gen_constant(IntConst left, IntConst right){
+        return left.le(right);
     }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
@@ -117,8 +112,8 @@ class less_equal : public CompareOperator{
 
 class greater_equal : public CompareOperator{
     public:
-    bool gen_constant(llvm::APInt left,llvm::APInt right){
-        return left.sge(right);
+    bool gen_constant(IntConst left, IntConst right){
+        return left.ge(right);
     }
     
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
@@ -128,8 +123,8 @@ class greater_equal : public CompareOperator{
 
 class greater_than : public CompareOperator{
     public:
-    bool gen_constant(llvm::APInt left,llvm::APInt right){
-        return left.sgt(right);
+    bool gen_constant(IntConst left, IntConst right){
+        return left.gt(right);
     }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
@@ -139,8 +134,8 @@ class greater_than : public CompareOperator{
 
 class less_than : public CompareOperator{
     public:
-    bool gen_constant(llvm::APInt left,llvm::APInt right){
-        return left.slt(right);
+    bool gen_constant(IntConst left, IntConst right){
+        return left.lt(right);
     }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
@@ -163,7 +158,7 @@ public:
     }
 
     virtual Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned) = 0; 
-    virtual llvm::APInt gen_constant(llvm::APInt left, llvm::APInt right) = 0;
+    virtual IntConst gen_constant(IntConst left, IntConst right) = 0;
     virtual void printAST() = 0;
     virtual Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right) = 0;
 
@@ -184,27 +179,17 @@ public:
         }
     }
 
-    virtual QValue* constantCodegen(llvm::APInt left, llvm::APInt right){
+    virtual QValue* constantCodegen(IntConst left, IntConst right){
+        IntConst result = gen_constant(left,right);
 
-        int leftBit = left.getBitWidth();
-        int rightBit = right.getBitWidth();
-
-        if(leftBit>rightBit){
-            right = right.sext(leftBit);
-
-        }else if(leftBit<rightBit){
-            left = left.sext(rightBit);
-        }
-
-        llvm::APInt result = gen_constant(left,right);
-        if(result.getBitWidth()>128){
-            if((result.isNegative() && checkRange(result,true)) || (!result.isNegative()&&checkRange(result,false))){
-                error("invalid number because it is too big or too small at line: "+std::to_string(line));
-            }
-        }
+//         if(result.getBitWidth()>128){
+//             if((result.isNegative() && checkRange(result,true)) || (!result.isNegative()&&checkRange(result,false))){
+//                 error("invalid number because it is too big or too small at line: "+std::to_string(line));
+//             }
+//         }
 
         ConstantType* qtype = new ConstantType(result);
-        llvm::Value* constInt =  ConstantInt::get(TheContext, result);
+        llvm::Value* constInt =  ConstantInt::get(TheContext, result.getValue());
         return new QValue(qtype,constInt);
     }
 
@@ -244,21 +229,7 @@ public:
 
 class plus : public ArithOperator{
     public:
-    llvm::APInt gen_constant(llvm::APInt left,llvm::APInt right){
-        assert(left.getBitWidth()==right.getBitWidth());
-
-        bool overflow; //check
-        int currentWidth = left.getBitWidth();
-        llvm::APInt result = left.sadd_ov(right,overflow);
-        while(overflow){
-            currentWidth*=2;
-            left = left.sext(currentWidth);
-            right = right.sext(currentWidth);
-            assert(left.getBitWidth()==right.getBitWidth());
-            result = left.sadd_ov(right,overflow);
-        }
-        return result;
-    }
+    IntConst gen_constant(IntConst left, IntConst right){ return left.plus(right); }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
@@ -268,23 +239,8 @@ class plus : public ArithOperator{
 
 class minus : public ArithOperator{
     public:
-    llvm::APInt gen_constant(llvm::APInt left,llvm::APInt right){
-        
-        assert(left.getBitWidth()==right.getBitWidth());
-        bool overflow; //check
-        int currentWidth = left.getBitWidth();
-        llvm::APInt result = left.ssub_ov(right,overflow);
-        while(overflow){
-            currentWidth*=2;
-            left = left.sext(currentWidth);
-            right = right.sext(currentWidth);
-            assert(left.getBitWidth()==right.getBitWidth());
-            result = left.ssub_ov(right,overflow);
 
-        }
-
-        return result;
-    }
+    IntConst gen_constant(IntConst left, IntConst right){ return left.minus(right); }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
@@ -340,20 +296,8 @@ class star : public ArithOperator{
         }
         return result;
     }*/
-    llvm::APInt gen_constant(llvm::APInt left,llvm::APInt right){
-        assert(left.getBitWidth()==right.getBitWidth());
-        bool overflow; //check
-        int currentWidth = left.getBitWidth();
-        llvm::APInt result = left.smul_ov(right,overflow);
-        while(overflow){
-            currentWidth*=2;
-            left = left.sext(currentWidth);
-            right = right.sext(currentWidth);
-            assert(left.getBitWidth()==right.getBitWidth());
-            result = left.smul_ov(right,overflow);
-        }
-        return result;
-    }
+    IntConst gen_constant(IntConst left, IntConst right){ return left.mul(right); }
+
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
@@ -363,24 +307,8 @@ class star : public ArithOperator{
 
 class division : public ArithOperator{
     public:
-    llvm::APInt gen_constant(llvm::APInt left,llvm::APInt right){
-        if(right==(0)){
-            error("div 0 at line: "+std::to_string(line));
-        }
-        assert(left.getBitWidth()==right.getBitWidth());
-        bool overflow; //check
-        int currentWidth = left.getBitWidth();
-        llvm::APInt result = left.sdiv_ov(right,overflow);
-        while(overflow){
-            currentWidth*=2;
-            left = left.sext(currentWidth);
-            right = right.sext(currentWidth);
-            assert(left.getBitWidth()==right.getBitWidth());
-            result = left.sdiv_ov(right,overflow);
-        }
 
-        return result;
-    }
+    IntConst gen_constant(IntConst left, IntConst right){ return left.div(right); }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
@@ -391,13 +319,7 @@ class division : public ArithOperator{
 
 class andT : public ArithOperator{
     public:
-    llvm::APInt gen_constant(llvm::APInt left,llvm::APInt right){
-        llvm::APInt copyL(left);
-        llvm::APInt result = left&=(right);
-        //Performs a bitwise OR operation on this APInt and RHS. The result is assigned to *this
-        left = copyL;
-        return result;
-    }
+    IntConst gen_constant(IntConst left,IntConst right) { return left.bit_and(right); }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
@@ -407,13 +329,7 @@ class andT : public ArithOperator{
 
 class orT : public ArithOperator{
     public:
-    llvm::APInt gen_constant(llvm::APInt left,llvm::APInt right){
-        llvm::APInt copyL(left);
-        llvm::APInt result = left|=(right);
-        //Performs a bitwise OR operation on this APInt and RHS. The result is assigned to *this
-        left = copyL;
-        return result;
-    }
+    IntConst gen_constant(IntConst left,IntConst right) { return left.bit_or(right); }
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);

@@ -1,3 +1,15 @@
+# July 10
+
+Qiao implemented array-bounds and use-after-free check
+
+Together: replaced const-impl with strings by IntConst
+
+TODO:
+  debug IntConst and stuff (tests fail)
+  enable array-bounds and use-after-free based on flag/config option
+
+
+
 # June 26
 
 div constant calculate
@@ -10,21 +22,23 @@ overflow checks for memory
 
 
 TODOs:
-  Fix Overflow in compiler constant propagation
+
+
+  DONE Fix Overflow in compiler constant propagation
     (- maybe use GMP library)
     - does LLVM provide functions to compute with large numbers?
       -> llvm/ADT/APInt.h
 
-  Fix Overflow in number parser
+  DONE Fix Overflow in number parser
     - must parse arbitrarily large numbers
 
-  Add Overflow check for uminus:
+  DONE Add Overflow check for uminus:
     sint8 x=-128
     sint8 y = -x # OVERFLOW
 
-  Free function.
+  DONE Free function.
 
-  overflow checks for memory
+  DONE(not optional yet) overflow checks for memory
     * array bounds checks (also optional)
 
 
