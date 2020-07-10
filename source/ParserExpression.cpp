@@ -257,30 +257,22 @@ std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
     int line1 = lineN;
     if(CurTok != Token::tok_new){
         error("expect new at line: "+std::to_string(lineN));
-       // ErrorQ("except new", lineN);
-        //return nullptr;
     }
     getNextToken(); //eat new
 
     if( !(isType()) ){
         error("expect a type at line: "+std::to_string(lineN));
-       // ErrorQ("except a type", lineN);
-       // return nullptr;
     }
     
     auto eletype = ParseType();
     if(!eletype){
         error("expect an type for new at line: "+std::to_string(lineN));
-       // ErrorQ("except an type for new",lineN);
-       // return nullptr;
     }
     
     PointType* type = new PointType(eletype);
     
     if(CurTok!=Token::left_square_bracket){
        error("expect [ at line: "+std::to_string(lineN));
-       // ErrorQ("unenough [, except [",lineN);
-       // return nullptr;
     }
     getNextToken(); //eat [
 
@@ -290,8 +282,6 @@ std::unique_ptr<NewExprAST> Parser::ParseNewExpr(){
 
     if(CurTok!=Token::right_square_bracket){
         error("expect ] at line: "+std::to_string(lineN));
-       // ErrorQ("except ] in array definition",lineN);
-       // return nullptr;
     }
     getNextToken(); //eat ]
 

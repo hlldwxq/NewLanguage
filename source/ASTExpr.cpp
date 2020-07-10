@@ -222,8 +222,33 @@ QValue* NewExprAST::codegen(){
 
     if(length==0)
         Bug("does not get datalayout",line);
-    //cast arraysize
+
     Value* arraySize = (size->codegen())->getValue();
+    QType* sizeType = (size->codegen())->getType();
+
+    if(sizeType->getIsPointer()){      //check if arraysize is integer 
+        error("the array size must be a integer");
+    }
+
+    if(doCheck){        //check array size > 0
+        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+        Value* zero = ConstantInt::get(sizeType->getLLVMType(),0,true);
+        Value* cmp = Builder.CreateICmpSLT(zero, arraySize);
+
+        BasicBlock *negSizeBB = BasicBlock::Create(TheContext,"negArrSize", TheFunction);
+        BasicBlock *normalBB = BasicBlock::Create(TheContext,"normal", TheFunction);
+        
+        Builder.CreateCondBr(cmp, normalBB, negSizeBB);
+        Builder.SetInsertPoint(negSizeBB);
+        callError("the size of array is negative or zero",line);
+        negSizeBB = Builder.GetInsertBlock();  
+
+        // normal
+        Builder.SetInsertPoint(normalBB);
+    }
+
+    //cast arraysize
     intCastCheck(sizet, arraySize,line);
     arraySize = Builder.CreateIntCast(arraySize,sizet,false); 
 
@@ -242,15 +267,11 @@ QValue* NewExprAST::codegen(){
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
     Value* record = Builder.Insert(var_malloc);
 
-    
-    plus* plusOp = new plus(line);
-    Value* sSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(arraySize->getType()),sizet,false);
-    Value* mSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(record->getType()),sizet,false);
-    Value* plusResult = plusOp->OverFlowCheck(new QValue(qt,sSize),new QValue(qt,mSize));
-
+    // new code
+    Value* space = ConstantExpr::getSizeOf(type->getStructType());
 
     // call malloc normally
-    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),plusResult,nullptr,nullptr,"");
+    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),space,nullptr,nullptr,"");
     Value* result = Builder.Insert(struct_malloc);
     //llvm::AllocaInst* result = Builder.CreateAlloca(type->getStructType());
 

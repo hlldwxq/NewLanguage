@@ -10,7 +10,7 @@ void FreeAST::codegenCommand(){
     }
 
     Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
-    Builder.CreateStore(ConstantInt::get(sizet,-1,true),arraySize);
+    Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
 
     Value* arrayAddress = Builder.CreateStructGEP(p->getValue(),1);
     arrayAddress = Builder.CreateLoad(arrayAddress);

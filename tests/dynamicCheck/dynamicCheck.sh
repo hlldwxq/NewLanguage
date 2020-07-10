@@ -22,5 +22,5 @@ function do_test() {
   grep -q "$REGEXP" "$LOG" || fail "unexpected exception"
 
 }
-#for i in tests/dynamicCheck/*.q; do toUnix "$i"; done
+for i in tests/dynamicCheck/*.q; do toUnix "$i"; done
 for i in tests/dynamicCheck/*.out; do do_test "$i"; done

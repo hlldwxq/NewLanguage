@@ -234,9 +234,7 @@ class PointType : public QType{
     bool isnull;
     StructType* stype;
     void initStruct(){
-        llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
-        Type* t = dataLayOut->getLargestLegalIntType(TheContext);
-        stype = StructType::get(TheContext,{t, llvm::PointerType::get(elementType->getLLVMType(),0)});
+        stype = StructType::get(TheContext,{sizet, llvm::PointerType::get(elementType->getLLVMType(),0)});
     }
 public:
     PointType(QType* elementType1,bool isn = false) : QType(true){
@@ -255,7 +253,7 @@ public:
 
     llvm::PointerType* getLLVMType() const{
         //return llvm::PointerType::get(elementType->getLLVMType(),0); 
-        return llvm::PointerType::get(stype,0);   
+        return llvm::PointerType::get(stype,0);  
     }
 
     void setStructType(StructType* s){
