@@ -36,19 +36,6 @@ cleanTest:
 	rm -rf $(DIR_TEST)/validTest/*.ll $(DIR_TEST)/validTest/*.log $(DIR_TEST)/validTest/*.out
 	
 
-meetTest: test.ll test.c
-	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g test.c test.ll -o test.out
-
-test.ll: test.q llvmir
-	./llvmir notDyCheck test.q>test.ll
-
-
-callTest: testCall.ll testCall.c
-	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g testCall.c testCall.ll -o testCall.out
-
-testCall.ll: testCall.q llvmir
-	./llvmir DyCheck testCall.q>testCall.ll
-
 
 
 Q = $(wildcard $(DIR_TEST)/dynamicCheck/*.q)
