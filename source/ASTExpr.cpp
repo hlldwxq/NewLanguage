@@ -241,6 +241,7 @@ QValue* NewExprAST::codegen(){
 
     Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
     Value* record = Builder.Insert(var_malloc);
+
     
     plus* plusOp = new plus(line);
     Value* sSize = Builder.CreateIntCast(ConstantExpr::getSizeOf(arraySize->getType()),sizet,false);
@@ -251,7 +252,7 @@ QValue* NewExprAST::codegen(){
     // call malloc normally
     Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),plusResult,nullptr,nullptr,"");
     Value* result = Builder.Insert(struct_malloc);
-    
+    //llvm::AllocaInst* result = Builder.CreateAlloca(type->getStructType());
 
     // assign
     Value* sizeAddress = Builder.CreateStructGEP(result,0);

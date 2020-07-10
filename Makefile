@@ -40,7 +40,7 @@ meetTest: test.ll test.c
 	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g test.c test.ll -o test.out
 
 test.ll: test.q llvmir
-	./llvmir DyCheck test.q>test.ll
+	./llvmir notDyCheck test.q>test.ll
 
 
 callTest: testCall.ll testCall.c
