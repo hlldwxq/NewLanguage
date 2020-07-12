@@ -250,52 +250,7 @@ class minus : public ArithOperator{
 
 class star : public ArithOperator{
     public:
-    /*std::string gen_constant(std::string l, std::string r){
-        
-        if(l=="0" || r=="0"){
-            return "0";
-        }
 
-        bool isLP = (l[0]=='+');
-        bool isRP = (r[0]=='+');
-        l.erase(0,1);
-        r.erase(0,1);
-    
-        bool rp = (isLP == isRP);  //the result is pos or not
-        std::string result = "0";  //care the symbol at the end, assume the result >0 when calculating
-        int carry = 0;
-        for(int i=r.size()-1;i>=0;i--){
-            
-            int left = r[i]-'0';
-            std::string res1 = "";
-            for(int j=l.size()-1;j>=0;j--){
-                int right = l[j]-'0';
-                int res = left * right + carry;
-                carry = res/10;
-                res = res - carry*10;
-                res1 = std::to_string(res) + res1;
-            }
-            res1 = res1 + getZero(r.size()-1-i);
-            res1 = removeExtra0(res1);
-            res1 = "+"+res1;
-            result = plus1(result,res1);
-        }
-        
-        assert(result[0]=='+');
-        result.erase(0,1);
-        if(carry!=0){
-            result = std::to_string(carry)+result;
-        }
-        if(rp){
-            result = '+'+result;
-        }else{
-            result = '-'+result;
-        }
-        if(result[0]!='0' && getBitOfInt(result,!rp)<=0){
-            error("the calculation result of " + l + " and " + r + " is overflow at line: "+std::to_string(line));
-        }
-        return result;
-    }*/
     IntConst gen_constant(IntConst left, IntConst right){ return left.mul(right); }
 
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);

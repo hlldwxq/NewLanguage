@@ -309,7 +309,6 @@ private:
     return f(aa,bb);
   }
 
-
   template<typename OP> llvm::APInt binop_adjust_ovf(OP f, llvm::APInt const &a, llvm::APInt const &b) const {
     unsigned width = std::max(a.getBitWidth(),b.getBitWidth());
 
@@ -326,21 +325,31 @@ private:
 
       width*=2; // width++
     };
+
+    res = res.zextOrTrunc(res.getMinSignedBits()+1);
+    if(IntConst(res).gt(IntConst(APInt::getSignedMaxValue(256))) || IntConst(res).lt(IntConst(APInt::getSignedMinValue(128)))){
+        error("invalid number because it is too big or too small");
+    }
     return res;
   }
 
-
 public:
   IntConst(std::string v) {
+      
     assert(v!="");
-    bool sgn = v[0]=='-';
-
+    bool sgn = false;
+    if(v[0]=='-'){
+      sgn = true;
+      v.erase(0,1);
+    }
     StringRef vv = v;
-    if (vv.getAsInteger(10,apValue)) Bug("Invalid integer, but parser should have ensured a valid one here!",0);
+    vv.getAsInteger(10,apValue);
+    //if (vv.getAsInteger(10,apValue)) Bug("Invalid integer, but parser should have ensured a valid one here!",0);
 
-    if (!sgn) {
-      auto minw = apValue.getActiveBits() + 1;
-      apValue = apValue.zextOrTrunc(minw);
+    auto minw = apValue.getActiveBits() + 1;
+    apValue = apValue.zextOrTrunc(minw);
+    if(sgn){
+        apValue = this->uminus().getValue();
     }
   }
 
@@ -448,7 +457,15 @@ public:
         return false;
     }
     llvm::Type* getLLVMType() const{
-        return IntType(isNegative(),getWidth()).getLLVMType();
+        int width = getWidth();
+        if(width<8) width = 8;
+        else if(width<16) width = 16;
+        else if(width<32) width = 32;
+        else if(width<64) width = 64;
+        else if(width<128) width = 128;
+        else if(width<256) width = 256;
+
+        return IntType(isNegative(),width).getLLVMType();
     }
 
     void printAST() const;
