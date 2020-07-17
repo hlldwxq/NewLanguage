@@ -1,6 +1,22 @@
 #include "../header/AST.h"
 #include "../header/ASTExpr.h"
 
+void createBr(std::string errorMessage,Value* cmp,int line){
+    Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+    BasicBlock *errorBB = BasicBlock::Create(TheContext, "error", TheFunction);
+	BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
+	Builder.CreateCondBr(cmp, errorBB, normalBB);
+
+    // overflow
+	Builder.SetInsertPoint(errorBB);
+    callError(errorMessage.c_str(),line);
+	errorBB = Builder.GetInsertBlock(); 
+
+    //normal
+	Builder.SetInsertPoint(normalBB);
+}
+
 const QAlloca* VariableAST::codegenLeft(){
 
     const QAlloca* Alloca = scope.findSymbol(name);
@@ -21,20 +37,15 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
 
     QValue* left = pointer->codegen();
     QValue* arrI = index->codegen();
-    Value* arrIndex = arrI->getValue();
-	
 
-    // TODO Why can't you use the same code as for unary/binary operand, or function call, that would convert
-    //        whatever operand to uintN?
-    //        -> Almost the code used for function call, except that you also need a (checked) downcast
-    //    MAYBE you can share some code here?
-
-    if(arrI->getType()->isConstant()){
-      IntConst ind = dynamic_cast<ConstantType*>(arrI->getType())->getValue();
-      if (ind.isNegative()) {
-        error("the index of array cannot be negative");
-      }
+    IntType* arraySizeType = new IntType(false,128); //if the size fix uint128
+    arrI = assignCast(arrI,arraySizeType);
+    if(!arrI){
+        error("the array index must be unsigned number");
     }
+
+    Value* arrIndex = arrI->getValue();
+
 
     if(!left->getType()->getIsPointer()){
         error("left expression must be a pointer");
@@ -46,49 +57,23 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     }
     
     if(doCheck){
+        
+        // cjeck free
+        Value* arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
+        arrayAddress = Builder.CreateLoad(arrayAddress);
+        Value* isNULL = Builder.CreateIsNull(arrayAddress);
+        isNULL = Builder.CreateICmpEQ(isNULL, ConstantInt::get(isNULL->getType(),1,false));
 
-        /*
-            if (index < size) OK
-            else {
-              if (ptr==NULL) error(access after free)
-              else error(index out of bounds)
-            }
+        createBr("the array has been free",isNULL,line);
 
-            this would require free to set size=0 and ptr=NULL
-        */
-
-        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+        //check array size out of bound
         Value* arraySize = Builder.CreateStructGEP(left->getValue(),0);
         arraySize = Builder.CreateLoad(arraySize);
+        arrIndex = Builder.CreateIntCast(arrIndex, arraySize->getType(),false);
 
-        Value* zero = ConstantInt::get(sizet,0,true);
-        Value* cmp1 = Builder.CreateICmpSGE(zero, arraySize);
-
-        BasicBlock *freeBB = BasicBlock::Create(TheContext,"free", TheFunction);
-        BasicBlock *noFreeBB = BasicBlock::Create(TheContext,"noFree", TheFunction);
+        Value* cmp = Builder.CreateICmpSLE(arraySize, arrIndex);
         
-        Builder.CreateCondBr(cmp1, freeBB, noFreeBB);
-        Builder.SetInsertPoint(freeBB);
-        callError("the pointer has been freed",line);
-        freeBB = Builder.GetInsertBlock();  
-
-        // normal
-        Builder.SetInsertPoint(noFreeBB);
-
-        arrIndex =Builder.CreateIntCast(arrIndex, arraySize->getType(),false);
-        Value* cmp = Builder.CreateICmpSGT(arraySize, arrIndex);
-
-        
-        BasicBlock *OutBoundBB = BasicBlock::Create(TheContext,"outBound", TheFunction);
-        BasicBlock *NormalBB = BasicBlock::Create(TheContext,"normal", TheFunction);
-        
-        Builder.CreateCondBr(cmp, NormalBB, OutBoundBB);
-        Builder.SetInsertPoint(OutBoundBB);
-        callError("array out of bound",line);
-        OutBoundBB = Builder.GetInsertBlock();  
-
-        // normal
-        Builder.SetInsertPoint(NormalBB);
+        createBr("array out of bound", cmp,line);
 
     }
 
@@ -114,6 +99,7 @@ QValue* LeftValueAST::codegen() {
 QValue* NumberExprAST::codegen(){
     ConstantType* qtype = new ConstantType(value);
     llvm::Value* constInt = ConstantInt::get(TheContext,qtype->getValue().getValue());
+    //printf("; constant\n");
     return new QValue(qtype,constInt);
 }
 
@@ -210,60 +196,33 @@ void intCastCheck(Type* qtype, Value* value, int line){
         return;
     }
 
-    Function *TheFunction = Builder.GetInsertBlock()->getParent();
-    
-    // avoid overflow when the size of target platform is same with compile platform
-    //unsigned long long maxSize = 2*((1ULL<<(length-1))-1)+1;  //unsigned
     assert(sizeof(unsigned long long)*8 >= length);    
     llvm::Value* maxInt = Builder.CreateIntCast(ConstantInt::get(TheContext, APInt::getMaxValue(length)),vtype,false);
     
     //compare
-    Value* cmp = Builder.CreateICmpUGE(maxInt, value, "cmptmp");
-    BasicBlock *overFlowBB = BasicBlock::Create(TheContext, "castOver", TheFunction);
-	BasicBlock *notOverBB = BasicBlock::Create(TheContext, "castNormal",TheFunction);
-	Builder.CreateCondBr(cmp, notOverBB, overFlowBB);
-
-    // overflow
-	Builder.SetInsertPoint(overFlowBB);
-    callError("overflow when casting the array size or malloc size in new expression",line);
-	overFlowBB = Builder.GetInsertBlock(); 
-
-    //normal
-	Builder.SetInsertPoint(notOverBB);
+    Value* cmp = Builder.CreateICmpULT(maxInt, value, "cmptmp");
+    createBr("overflow when casting the array size or malloc size in new expression",cmp,line);
+    
 }
 
 QValue* NewExprAST::codegen(){
     
     // get the size of target platform
     unsigned length = sizet->getIntegerBitWidth();
-
     if(length==0)
         Bug("does not get datalayout",line);
 
-    Value* arraySize = (size->codegen())->getValue();
-    QType* sizeType = (size->codegen())->getType();
+    QValue* sizeValue = size->codegen();
 
-    if(sizeType->getIsPointer()){      //check if arraysize is integer 
-        error("the array size must be a integer");
+    // sizecheck size >= 0
+    IntType* arraySizeType = new IntType(false,128); //if the size fix uint128
+    sizeValue = assignCast(sizeValue,arraySizeType);
+    if(!sizeValue){
+        error("the size of array must be unsigned number");
     }
 
-    if(doCheck){        //check array size > 0
-        Function *TheFunction = Builder.GetInsertBlock()->getParent();
-
-        Value* zero = ConstantInt::get(sizeType->getLLVMType(),0,true);
-        Value* cmp = Builder.CreateICmpSLT(zero, arraySize);
-
-        BasicBlock *negSizeBB = BasicBlock::Create(TheContext,"negArrSize", TheFunction);
-        BasicBlock *normalBB = BasicBlock::Create(TheContext,"normal", TheFunction);
-        
-        Builder.CreateCondBr(cmp, normalBB, negSizeBB);
-        Builder.SetInsertPoint(negSizeBB);
-        callError("the size of array is negative or zero",line);
-        negSizeBB = Builder.GetInsertBlock();  
-
-        // normal
-        Builder.SetInsertPoint(normalBB);
-    }
+    Value* arraySize = sizeValue->getValue();
+    //QType* sizeType = sizeValue->getType();
 
     //cast arraysize
     intCastCheck(sizet, arraySize,line);
@@ -281,24 +240,14 @@ QValue* NewExprAST::codegen(){
     QType* qt = new IntType(false,length);
     Value* mulResult = starOp->OverFlowCheck(new QValue(qt,arraySize),new QValue(qt,mallocSize));
 
-    Instruction* var_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
-    Value* record = Builder.Insert(var_malloc);
+    Instruction* malloc_inst = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
+    Value* malloc_value = Builder.Insert(malloc_inst);
 
     // new code
-    Value* space = ConstantExpr::getSizeOf(type->getStructType());
-
-    /* TODO the names record and space are confusing here
-        Current naming:
-          record: holds the memory for the array elements
-          space: holds the struct for the array meta-info
-
-        structures are sometimes also called records!
-        space suggests the space for the array itself!
-
-    */
+    Value* struct_size = ConstantExpr::getSizeOf(type->getStructType());
 
     // call malloc normally
-    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),space,nullptr,nullptr,"");
+    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),struct_size,nullptr,nullptr,"");
     Value* result = Builder.Insert(struct_malloc);
     //llvm::AllocaInst* result = Builder.CreateAlloca(type->getStructType());
 
@@ -307,7 +256,7 @@ QValue* NewExprAST::codegen(){
     Builder.CreateStore(arraySize,sizeAddress);
 
     Value* arrayAddress = Builder.CreateStructGEP(result,1);
-    Builder.CreateStore(record,arrayAddress);
+    Builder.CreateStore(malloc_value,arrayAddress);
     
     return new QValue(type,result); 
 }

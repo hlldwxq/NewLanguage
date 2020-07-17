@@ -8,7 +8,7 @@ def sint64 intReturnType(sint64 a){
 
 def sint64* pointerReturnType(sint64 a){
     sint64* array = new sint64[5]
-    for sint64 i , i < 5 , 1
+    for uint64 i , i < 5 , 1
         array[i] = a
     return array
 }

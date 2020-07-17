@@ -1,4 +1,4 @@
-# EXPECT the index of array cannot be negative
+# EXPECT the array index must be unsigned number
 def uint16 test(){
 
   sint64* arr1 = new sint64[3]

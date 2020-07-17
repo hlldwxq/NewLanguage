@@ -1,4 +1,4 @@
-# EXPECT the index of array cannot be negative
+# EXPECT the array index must be unsigned number
 
 def void errorType(){
     sint64* a = new sint64[2]

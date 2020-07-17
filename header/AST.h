@@ -32,6 +32,7 @@
 #include <string>
 #include <climits> 
 #include "Scope.h"
+
 using namespace llvm;
 using namespace llvm::Intrinsic;
 
@@ -284,6 +285,9 @@ public:
 
 };
 
+
+
+
 /*
   Arbitrary precision signed integer type
 
@@ -321,14 +325,17 @@ private:
       res = f(aa,bb,ov);
       if (!ov) break;
 
-      if (width > std::numeric_limits<unsigned>::max() / 2) error("Constant arithmetic overflow"); // Maybe APInt will hit some limits before that. TODO: Check if it is undefined behaviour then!
+      if (width > std::numeric_limits<unsigned>::max() / 2) error("Constant arithmetic overflow"); 
+      // Maybe APInt will hit some limits before that. TODO: Check if it is undefined behaviour then!
+      // I checked it, it is not a undefined behaviour
 
       width*=2; // width++
-    };
+    }
 
-    res = res.zextOrTrunc(res.getMinSignedBits()+1);
-    if(IntConst(res).gt(IntConst(APInt::getSignedMaxValue(256))) || IntConst(res).lt(IntConst(APInt::getSignedMinValue(128)))){
-        error("invalid number because it is too big or too small");
+    if(res.getBitWidth()>128){
+        if(checkRange(res,res.isNegative())){
+            error("invalid number because it is too big or too small ("+ std::to_string(res.getBitWidth()) +" bits)");
+        }
     }
     return res;
   }
@@ -426,8 +433,6 @@ public:
 };
 
 
-
-
 //The reason why I need the type is becasue,like in the cast:
 //uint8 u2 = 9     uint8 u1 = 3 + 8 - u2
 //if there is no constantNumber, type of 3+8 will be sint8
@@ -475,15 +480,8 @@ public:
             return false;
         ConstantType const* ct = dynamic_cast<ConstantType const*>(ty);
 
-        return value.eq(ct->getValue()); //test to check
-
-//         if(value!="" && ct->getValue()!="" && ct->getValue()==value)
-//             return true;
-//         else
-//             return apValue == ct->getApValue(); //test to check
+        return value.eq(ct->getValue()); 
     }
-
-
 
 };
 

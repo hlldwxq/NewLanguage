@@ -12,11 +12,14 @@ void FreeAST::codegenCommand(){
     Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
     Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
 
-    Value* arrayAddress = Builder.CreateStructGEP(p->getValue(),1);
-    arrayAddress = Builder.CreateLoad(arrayAddress);
-
-    Instruction* var_free = CallInst::CreateFree(arrayAddress,Builder.GetInsertBlock());
+    Value* arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
+    Value* array = Builder.CreateLoad(arrayAddPtr);
+    //free
+    Instruction* var_free = CallInst::CreateFree(array,Builder.GetInsertBlock());
     Builder.Insert(var_free);
+    //store null
+    Value* nullValue = Constant::getNullValue(array->getType());
+    Builder.CreateStore(nullValue,arrayAddPtr);
 }
 
 void DefAST::codegenCommand(){

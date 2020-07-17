@@ -1,12 +1,12 @@
 
-def sint64 ReverseFibonacci(sint64 a) {
+def uint64 ReverseFibonacci(sint64 a) {
   if a==1
   then return 1
 
   sint64* array
   array = null
   array = new sint64[2]
-  sint64 i = 1
+  uint64 i = 1
   while true {
     if i<=2
     then array[i-1] = 1

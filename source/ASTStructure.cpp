@@ -103,6 +103,7 @@ GlobalVariable* DefAST::globalInit(){
     return globalV;
 }
 
+
 void VarDefAST::codegenStructure(){
 
     GlobalVariable* globalV = globalInit();
@@ -115,26 +116,11 @@ void VarDefAST::codegenStructure(){
 
     ConstantType* numType = dynamic_cast<ConstantType*>(qvalue->getType());
     if(!numType->getValue().isZero()) {
-        IntType* leftType = dynamic_cast<IntType*>(type);
 
-        //TODO: This checks if a constant can be converted to a given type. This check must also occur elsewhere, e.g., for parameters, binary operations with one const, etc. Remove the redundancy!
-
-        IntConst value = numType->getValue();
-        bool isSigned = leftType->getSigned();
-        unsigned width = leftType->getWidth();
-
-        if(!isSigned && value.isNegative()){
-            CommandAST::lerror("cannot assign a negative value to an unsigned variable");
-        }
-
-        if (value.minWidth(isSigned) > width) {
-          CommandAST::lerror("type cannot be converted");
-        }
-
-        llvm::APInt av = value.getAlignedValue(isSigned,width);
-
+        qvalue = assignCast(qvalue,type);
+        llvm::Value* rightV = qvalue->getValue();
         Function* F = globalInitFunc();
-        llvm::Value* rightV = ConstantInt::get(TheContext,av);
+        
         Builder.CreateStore(rightV, globalV);
         Builder.CreateRetVoid();
         std::vector<QType*> argsT;

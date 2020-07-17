@@ -1,7 +1,7 @@
 
-def sint64 Fibonacci(sint64 a) {
+def sint64 Fibonacci(uint64 a) {
   sint64* array = new sint64[a+1]
-  sint64 i = 0
+  uint64 i = 0
   while i<=a {
     if i<=2
     then array[i] = 1

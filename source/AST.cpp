@@ -273,29 +273,6 @@ QValue* constAdjustSign(QValue* num, bool isSigned){
 
     return new QValue(t,constInt);
 
-/*
-    int width = type->getWidth();
-    if(type->getValue()!=""){
-        // the constant num is a real constant num,we just need to get a new width based on the sign
-        width = getBitOfInt(type->getValue(), isSigned);
-    }else{ 
-        //this is the result of constant number calculation, like 4+5, it does not has string, it just has APInt
-        width = getBitOfAPInt(type->getApValue(),isSigned);
-    }
-
-    IntType* t = new IntType(isSigned,width); //get suitable type
-    llvm::Value* constInt;
-    if(width==type->getWidth()){
-        constInt = num->getValue();
-    }else{
-        if(type->getValue()!=""){
-            constInt = ConstantInt::get(TheContext,llvm::APInt(width, type->getValue(), 10));
-        }else{ 
-            constInt = Builder.CreateIntCast(num->getValue(), t->getLLVMType(), isSigned);
-        }
-    }
-
-    return new QValue(t,constInt);*/
 }
 
 QValue* upCast(QValue* qv, IntType* type){
@@ -404,7 +381,7 @@ void callError(std::string info, int line){
 }
 
 
-/////////////////////save old code///////////////////
+//   ///////////////////          save old code          /////////////////   //
 //used when constant num is a operand of binaty operator and anther operand is not contant
 //I hope to make the type of constant num becomes IntType
 /*int getSuitableWidth(long long num, bool isSigned){
