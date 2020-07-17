@@ -34,7 +34,7 @@ cleanTest:
 	rm -rf $(DIR_TEST)/invalidTest/typeConvert/*.log
 	rm -rf $(DIR_TEST)/MeanfulTest/*.ll $(DIR_TEST)/MeanfulTest/*.log $(DIR_TEST)/MeanfulTest/*.out
 	rm -rf $(DIR_TEST)/validTest/*.ll $(DIR_TEST)/validTest/*.log $(DIR_TEST)/validTest/*.out
-	
+	rm -rf $(DIR_TEST)/validTest/out/*
 
 
 
@@ -57,19 +57,19 @@ $(IR) : $(Q) llvmir
 
 
 VT_Q = $(wildcard $(DIR_TEST)/validTest/*.q)
-VT_IR = $(patsubst %.q, %.ll, $(VT_Q))
+# VT_IR = $(patsubst %.q, %.ll, $(VT_Q))
 VT_C = $(patsubst %.q, %.c, $(VT_Q))
-VT_O = $(patsubst %.q, %.out, $(VT_Q))
+# VT_O = $(patsubst %.q, %.out, $(VT_Q))
 
-validTest: llvmir $(VT_O)
+validTest: llvmir $(VT_C) $(VT_Q) $(DIR_TEST)/validTest/validTest.sh
 	$(DIR_TEST)/validTest/validTest.sh
 
-$(VT_O) : $(VT_C) $(VT_IR)
-	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
-	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
-
-$(VT_IR) : $(VT_Q) llvmir
-	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
+# $(VT_O) : $(VT_C) $(VT_IR)
+# 	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
+# 	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
+#
+# $(VT_IR) : $(VT_Q) llvmir
+# 	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
 
 
 

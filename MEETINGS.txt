@@ -1,3 +1,27 @@
+# July 17
+Qiao completed implemented IntConst stuff, fixed bugs
+
+Together: adjusted validtest script
+
+TODO:
+  enable array-bounds and use-after-free based on flag/config option
+  more fine grained flags, e.g.
+    arith-checks: detect overflow on arith operations, e.g., 127+3 (sint8), 5/0, ...
+    array-bound-checks: detect array index out of bounds
+    free-checks: detect use after free, double-free
+
+
+  meaningful tests, ideally:
+    * can be benchmarked against real-world impls
+    * use all relevant features: arith, array-access, memory-alloc/free
+
+  ideas:
+    sorting algorithm, e.g.
+      heapsort -> has impl in GNU libstdc++ (std::make_heap, std::sort_heap)
+      introsort -> has impl in GNU libstdc++ (std::sort)
+      mergesort -> has impl in GNU libstdc++ (std:stable_sort)
+
+
 # July 10
 
 Qiao implemented array-bounds and use-after-free check
@@ -5,7 +29,7 @@ Qiao implemented array-bounds and use-after-free check
 Together: replaced const-impl with strings by IntConst
 
 TODO:
-  debug IntConst and stuff (tests fail)
+  DONE debug IntConst and stuff (tests fail)
   enable array-bounds and use-after-free based on flag/config option
 
 
