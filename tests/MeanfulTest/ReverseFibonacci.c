@@ -18,6 +18,8 @@ int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
     check(22,8);
     check(60,10);
     check(610,15);
+
+    printf("Success!");
     return 0;
 }
 

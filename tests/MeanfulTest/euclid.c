@@ -22,7 +22,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
       check(15,20,5);
       check(101,100,1);
       check(100,100,100);
-
+      printf("Success!");
       return 0;
     }
     else {
@@ -30,7 +30,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
       b = atol(argv[2]);
     }
 
-    printf("GCD %lu\n", euclid(a,b));
+    
     return 0;
 }
 

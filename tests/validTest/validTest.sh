@@ -70,9 +70,6 @@ function do_tests() {
     do_test $i
   done
 
-#
-#   for i in tests/validTest/*.out; do do_test "$i"; done
-#   for i in tests/validTest/*.log; do isSuccess "$i"; done
 }
 
 do_tests DyCheck dy

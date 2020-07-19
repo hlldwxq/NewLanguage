@@ -3,23 +3,28 @@
 #include "../header/ASTCommand.h"
 #include "../header/Scope.h"
 
+
 void FreeAST::codegenCommand(){
     QValue* p = ptr->codegen();
     if(!p->getType()->getIsPointer()){
         lerror("what will be freed must be a pointer");
     }
+    if(doCheck){
+        Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
+        Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
 
-    Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
-    Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
-
-    Value* arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
-    Value* array = Builder.CreateLoad(arrayAddPtr);
-    //free
-    Instruction* var_free = CallInst::CreateFree(array,Builder.GetInsertBlock());
-    Builder.Insert(var_free);
-    //store null
-    Value* nullValue = Constant::getNullValue(array->getType());
-    Builder.CreateStore(nullValue,arrayAddPtr);
+        Value* arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
+        Value* array = Builder.CreateLoad(arrayAddPtr);
+        //free
+        Instruction* var_free = CallInst::CreateFree(array,Builder.GetInsertBlock());
+        Builder.Insert(var_free);
+        //store null
+        Value* nullValue = Constant::getNullValue(array->getType());
+        Builder.CreateStore(nullValue,arrayAddPtr);
+    }else{
+        Instruction* var_free = CallInst::CreateFree(p->getValue(),Builder.GetInsertBlock());
+        Builder.Insert(var_free);
+    }
 }
 
 void DefAST::codegenCommand(){

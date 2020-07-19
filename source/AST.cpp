@@ -1,5 +1,6 @@
 #include "../header/AST.h"
 #include "../header/Scope.h"
+
 #include <assert.h>
 
 //the definition of global variable is at the end of the file
@@ -16,6 +17,22 @@ std::map<int,std::string> maxIntSignedValue;
 std::map<int,std::string> minIntSignedValue;
 std::map<int,std::string> maxIntUnSignedValue;
 std::map<int,std::string> minIntUnSignedValue;
+
+void createBr(std::string errorMessage,Value* cmp,int line,std::string bbNameE, std::string bbNameN){
+    Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+    BasicBlock *errorBB = BasicBlock::Create(TheContext, bbNameE, TheFunction);
+	BasicBlock *normalBB = BasicBlock::Create(TheContext, bbNameN,TheFunction);
+	Builder.CreateCondBr(cmp, errorBB, normalBB);
+
+    // overflow
+	Builder.SetInsertPoint(errorBB);
+    callError(errorMessage.c_str(),line);
+	errorBB = Builder.GetInsertBlock(); 
+
+    //normal
+	Builder.SetInsertPoint(normalBB);
+}
 
 void initIntValueStr(){
     maxIntSignedValue.insert(std::pair<int,std::string>(8,"127"));

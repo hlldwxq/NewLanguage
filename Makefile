@@ -29,48 +29,25 @@ clean:
 
 
 cleanTest:
-	rm -rf $(DIR_TEST)/dynamicCheck/*.ll $(DIR_TEST)/dynamicCheck/*.log $(DIR_TEST)/dynamicCheck/*.out
-	rm -rf $(DIR_TEST)/invalidTest/other/*.log
-	rm -rf $(DIR_TEST)/invalidTest/typeConvert/*.log
-	rm -rf $(DIR_TEST)/MeanfulTest/*.ll $(DIR_TEST)/MeanfulTest/*.log $(DIR_TEST)/MeanfulTest/*.out
-	rm -rf $(DIR_TEST)/validTest/*.ll $(DIR_TEST)/validTest/*.log $(DIR_TEST)/validTest/*.out
 	rm -rf $(DIR_TEST)/validTest/out/*
+	rm -rf $(DIR_TEST)/MeanfulTest/out/*
+	rm -rf $(DIR_TEST)/dynamicCheck/out/*
+	rm -rf $(DIR_TEST)/invalidTest/*.log
 
 
 
 Q = $(wildcard $(DIR_TEST)/dynamicCheck/*.q)
-IR = $(patsubst %.q, %.ll, $(Q))
 C = $(patsubst %.q, %.c, $(Q))
-O = $(patsubst %.q, %.out, $(Q))
-
-dynamicTest: llvmir $(O)
+dynamicTest: llvmir $(O) $(C) $(DIR_TEST)/dynamicCheck/dynamicCheck.sh
 	$(DIR_TEST)/dynamicCheck/dynamicCheck.sh
-
-$(O) : $(C) $(IR)
-	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
-	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
-
-$(IR) : $(Q) llvmir
-	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
 
 
 
 
 VT_Q = $(wildcard $(DIR_TEST)/validTest/*.q)
-# VT_IR = $(patsubst %.q, %.ll, $(VT_Q))
 VT_C = $(patsubst %.q, %.c, $(VT_Q))
-# VT_O = $(patsubst %.q, %.out, $(VT_Q))
-
 validTest: llvmir $(VT_C) $(VT_Q) $(DIR_TEST)/validTest/validTest.sh
 	$(DIR_TEST)/validTest/validTest.sh
-
-# $(VT_O) : $(VT_C) $(VT_IR)
-# 	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
-# 	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
-#
-# $(VT_IR) : $(VT_Q) llvmir
-# 	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )
-
 
 
 
@@ -79,18 +56,8 @@ invalidTest: llvmir $(wildcard $(DIR_TEST)/invalidTest/*.q)
 
 
 
-
 M_Q = $(wildcard $(DIR_TEST)/MeanfulTest/*.q)
-M_IR = $(patsubst %.q, %.ll, $(M_Q))
 M_C = $(patsubst %.q, %.c, $(M_Q))
-M_O = $(patsubst %.q, %.out, $(M_Q))
-
-meanfulTest: llvmir $(M_O)
+meanfulTest: llvmir $(M_Q) $(M_C) $(DIR_TEST)/MeanfulTest/meanfulTest.sh
 	$(DIR_TEST)/MeanfulTest/meanfulTest.sh
 
-$(M_O) : $(M_C) $(M_IR)
-	llvm-as-10 -disable-output $(patsubst %.out, %.ll, $@)
-	clang-10 -O2 -Wall -Wextra --rtlib=compiler-rt -g -o $@ $(patsubst %.out, %.c, $@) $(patsubst %.out, %.ll, $@)
-
-$(M_IR) : $(M_Q) llvmir
-	./llvmir DyCheck $(patsubst %.ll, %.q, $@) > $@ || ( rm $@; exit 1 )

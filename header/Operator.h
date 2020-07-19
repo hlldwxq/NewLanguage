@@ -202,7 +202,7 @@ public:
         Function* overFlow = overFlowDeclare(args_type,dynamic_cast<IntType*>(left->getType())->getSigned());
         if (!overFlow) return gen_llvm(dynamic_cast<IntType*>(left->getType())->getSigned(),left->getValue(),right->getValue());
         
-        Function *TheFunction = Builder.GetInsertBlock()->getParent();
+        // Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
         std::vector<llvm::Value*> fun_arguments;
         fun_arguments.push_back(left->getValue()); 
@@ -211,7 +211,9 @@ public:
         Value* checkCall = Builder.CreateCall(overFlow, fun_arguments, "overflowtmp");
         Value* extractV = Builder.CreateExtractValue(checkCall,1);
 
-        BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
+        createBr("overflow when doing arithmatic calculation",extractV, line, "arithOverFlow", "arithNormal");
+
+        /*BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
         BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
         Builder.CreateCondBr(extractV, overflowBB, normalBB);
 
@@ -221,7 +223,7 @@ public:
         overflowBB = Builder.GetInsertBlock();  
 
         // normal
-        Builder.SetInsertPoint(normalBB);
+        Builder.SetInsertPoint(normalBB);*/
         return Builder.CreateExtractValue(checkCall,0);
         
     }

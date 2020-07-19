@@ -1,21 +1,7 @@
 #include "../header/AST.h"
 #include "../header/ASTExpr.h"
 
-void createBr(std::string errorMessage,Value* cmp,int line){
-    Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
-    BasicBlock *errorBB = BasicBlock::Create(TheContext, "error", TheFunction);
-	BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
-	Builder.CreateCondBr(cmp, errorBB, normalBB);
-
-    // overflow
-	Builder.SetInsertPoint(errorBB);
-    callError(errorMessage.c_str(),line);
-	errorBB = Builder.GetInsertBlock(); 
-
-    //normal
-	Builder.SetInsertPoint(normalBB);
-}
 
 const QAlloca* VariableAST::codegenLeft(){
 
@@ -56,15 +42,16 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
         error("the pointer has not been init");
     }
     
+    Value* arrayAddress;
     if(doCheck){
         
-        // cjeck free
-        Value* arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
+        // check free
+        arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
         arrayAddress = Builder.CreateLoad(arrayAddress);
         Value* isNULL = Builder.CreateIsNull(arrayAddress);
         isNULL = Builder.CreateICmpEQ(isNULL, ConstantInt::get(isNULL->getType(),1,false));
 
-        createBr("the array has been free",isNULL,line);
+        createBr("the array has been free",isNULL,line, "hasFree", "noFree");
 
         //check array size out of bound
         Value* arraySize = Builder.CreateStructGEP(left->getValue(),0);
@@ -73,14 +60,15 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
 
         Value* cmp = Builder.CreateICmpSLE(arraySize, arrIndex);
         
-        createBr("array out of bound", cmp,line);
+        createBr("array out of bound", cmp,line, "outBound", "notOutBound");
 
+    }else{
+        arrayAddress = left->getValue();
     }
 
     QType* elementT = pt->getElementType();
-    Value* arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
-    arrayAddress = Builder.CreateLoad(arrayAddress);
-    llvm::Value* eleptr = Builder.CreateGEP(elementT->getLLVMType(), arrayAddress,arrIndex);   
+    //TheModule->print(outs(), nullptr);
+    llvm::Value* eleptr = Builder.CreateGEP(cast<PointerType>(arrayAddress->getType()->getScalarType())->getElementType(), arrayAddress,arrIndex);   
     const QAlloca* qv = new QAlloca(elementT,eleptr);
 
     return qv;
@@ -201,7 +189,7 @@ void intCastCheck(Type* qtype, Value* value, int line){
     
     //compare
     Value* cmp = Builder.CreateICmpULT(maxInt, value, "cmptmp");
-    createBr("overflow when casting the array size or malloc size in new expression",cmp,line);
+    createBr("overflow when casting the array size or malloc size in new expression",cmp,line,"newOverF","newNotOverF");
     
 }
 
@@ -244,21 +232,26 @@ QValue* NewExprAST::codegen(){
     Value* malloc_value = Builder.Insert(malloc_inst);
 
     // new code
-    Value* struct_size = ConstantExpr::getSizeOf(type->getStructType());
+    if(doCheck){
+        Value* struct_size = ConstantExpr::getSizeOf(type->getStructType());
 
-    // call malloc normally
-    Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),struct_size,nullptr,nullptr,"");
-    Value* result = Builder.Insert(struct_malloc);
-    //llvm::AllocaInst* result = Builder.CreateAlloca(type->getStructType());
+        // call malloc normally
+        Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),struct_size,nullptr,nullptr,"");
+        Value* result = Builder.Insert(struct_malloc);
+        //llvm::AllocaInst* result = Builder.CreateAlloca(type->getStructType());
 
-    // assign
-    Value* sizeAddress = Builder.CreateStructGEP(result,0);
-    Builder.CreateStore(arraySize,sizeAddress);
+        // assign
+        Value* sizeAddress = Builder.CreateStructGEP(result,0);
+        Builder.CreateStore(arraySize,sizeAddress);
 
-    Value* arrayAddress = Builder.CreateStructGEP(result,1);
-    Builder.CreateStore(malloc_value,arrayAddress);
-    
-    return new QValue(type,result); 
+        Value* arrayAddress = Builder.CreateStructGEP(result,1);
+        Builder.CreateStore(malloc_value,arrayAddress);
+        
+        return new QValue(type,result); 
+    }else{
+        return new QValue(type,malloc_value);
+    }
+    //TheModule->print(outs(), nullptr);
 }
 
 QValue* NullExprAST::codegen(){

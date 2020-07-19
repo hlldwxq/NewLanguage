@@ -3,6 +3,7 @@
 #include "../header/ASTCommand.h"
 #include "../header/ASTStructure.h"
 
+
 void PrototypeAST::codegenStructure(){
 
     std::vector<llvm::Type*> args;
