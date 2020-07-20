@@ -182,18 +182,12 @@ public:
     virtual QValue* constantCodegen(IntConst left, IntConst right){
         IntConst result = gen_constant(left,right);
 
-//         if(result.getBitWidth()>128){
-//             if((result.isNegative() && checkRange(result,true)) || (!result.isNegative()&&checkRange(result,false))){
-//                 error("invalid number because it is too big or too small at line: "+std::to_string(line));
-//             }
-//         }
-
         ConstantType* qtype = new ConstantType(result);
         llvm::Value* constInt =  ConstantInt::get(TheContext, result.getValue());
         return new QValue(qtype,constInt);
     }
 
-    virtual llvm::Value* OverFlowCheck(QValue* left, QValue* right){
+    virtual llvm::Value* OverFlowCheck(QValue* left, QValue* right, std::string bbName = "", std::string normalBBname = ""){
         
         std::vector<Type*> args_type;
         args_type.push_back(left->getType()->getLLVMType()); 
@@ -210,20 +204,13 @@ public:
 
         Value* checkCall = Builder.CreateCall(overFlow, fun_arguments, "overflowtmp");
         Value* extractV = Builder.CreateExtractValue(checkCall,1);
-
-        createBr("overflow when doing arithmatic calculation",extractV, line, "arithOverFlow", "arithNormal");
-
-        /*BasicBlock *overflowBB = BasicBlock::Create(TheContext, "overflow", TheFunction);
-        BasicBlock *normalBB = BasicBlock::Create(TheContext, "normal",TheFunction);
-        Builder.CreateCondBr(extractV, overflowBB, normalBB);
-
-        // overflow
-        Builder.SetInsertPoint(overflowBB);
-        callError("overflow",line);
-        overflowBB = Builder.GetInsertBlock();  
-
-        // normal
-        Builder.SetInsertPoint(normalBB);*/
+        if(bbName == "")
+            createBr("overflow when doing arithmatic calculation",extractV, line, "arithOverFlow", "arithNormal");
+        else
+        {
+            createBr("overflow when doing arithmatic calculation",extractV, line, bbName, normalBBname);
+        }
+        
         return Builder.CreateExtractValue(checkCall,0);
         
     }
@@ -270,7 +257,7 @@ class division : public ArithOperator{
     Value* gen_llvm(bool isSigned, llvm::Value* left, llvm::Value* right);
     void printAST();
     Function* overFlowDeclare(std::vector<Type*> args_type, bool isSigned);
-    llvm::Value* OverFlowCheck(QValue* left,QValue* right);
+    llvm::Value* OverFlowCheck(QValue* left,QValue* right,std::string bbName, std::string normalBBName);
     division(int line):ArithOperator(Operators::division,line){}
 };  // /
 

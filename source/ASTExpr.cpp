@@ -226,7 +226,7 @@ QValue* NewExprAST::codegen(){
     //check overflow when mul arraysize and malloc size
     star* starOp = new star(line);
     QType* qt = new IntType(false,length);
-    Value* mulResult = starOp->OverFlowCheck(new QValue(qt,arraySize),new QValue(qt,mallocSize));
+    Value* mulResult = starOp->OverFlowCheck(new QValue(qt,arraySize),new QValue(qt,mallocSize),"newMulOverFlow","newMulNormal");
 
     Instruction* malloc_inst = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getElementType()->getLLVMType(),mulResult,nullptr,nullptr,"");
     Value* malloc_value = Builder.Insert(malloc_inst);
