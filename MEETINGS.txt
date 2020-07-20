@@ -1,14 +1,25 @@
-# July 17
+# July 17+July20
 Qiao completed implemented IntConst stuff, fixed bugs
 
-Together: adjusted validtest script
+Together:
+  adjusted validtest script
+  quicksort
+  fixed invalid backjump bug in while/for loops
+  fixed return void parser bug (void would not be consumed)
+
 
 TODO:
+  add regression tests:
+    complex conditions in while/for loops -> Bug with invalid back-jump
+    return void
+
   enable array-bounds and use-after-free based on flag/config option
   more fine grained flags, e.g.
     arith-checks: detect overflow on arith operations, e.g., 127+3 (sint8), 5/0, ...
     array-bound-checks: detect array index out of bounds
     free-checks: detect use after free, double-free
+
+  string type, string literals
 
 
   meaningful tests, ideally:

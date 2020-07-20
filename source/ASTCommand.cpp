@@ -130,7 +130,7 @@ void IfAST::codegenCommand(){
         Builder.CreateBr(MergeBB);
     }
 
-	ThenBB = Builder.GetInsertBlock();  // Codegen of 'Then' can change the current block.
+// 	ThenBB = Builder.GetInsertBlock();  // Codegen of 'Then' can change the current block.
 
 	Builder.SetInsertPoint(ElseBB);
 	elseC->codegenCommand();
@@ -138,7 +138,7 @@ void IfAST::codegenCommand(){
         Builder.CreateBr(MergeBB);
     }
 
-	ElseBB = Builder.GetInsertBlock();
+// 	ElseBB = Builder.GetInsertBlock();
 
 	// merge
     if(MergeBB){
@@ -180,14 +180,14 @@ void ForAST::codegenCommand(){
     }
 	Builder.CreateCondBr(Cond->getValue(), BodyBB, AfterBB);
 
-	ConBB = Builder.GetInsertBlock();
+// 	ConBB = Builder.GetInsertBlock();
 
 	// Emit body block.
 	Builder.SetInsertPoint(BodyBB);
 
 	body->codegenCommand();
 
-	BodyBB = Builder.GetInsertBlock();
+// 	BodyBB = Builder.GetInsertBlock();
 
 	// Emit the step value.
     const QAlloca* startAlloca = scope.findSymbol(start->getName());
@@ -237,7 +237,7 @@ void WhileAST::codegenCommand(){
     }
 	Builder.CreateCondBr(Cond->getValue(), BodyBB, AfterBB);
 
-	ConBB = Builder.GetInsertBlock();
+// 	ConBB = Builder.GetInsertBlock();
 
 	// Emit body block.
     //	TheFunction->getBasicBlockList().push_back(BodyBB);
@@ -245,7 +245,7 @@ void WhileAST::codegenCommand(){
 
 	body->codegenCommand();
 
-	BodyBB = Builder.GetInsertBlock();
+// 	BodyBB = Builder.GetInsertBlock();
 	Builder.CreateBr(ConBB);
 
 	// Emit after block.

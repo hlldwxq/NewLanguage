@@ -72,6 +72,7 @@ std::unique_ptr<ReturnAST> Parser::ParseReturn(){
     getNextToken(); //eat return
 
     if (CurTok == Token::tok_void) {
+      getNextToken(); //eat void
 
       return std::make_unique<ReturnAST>(nullptr,line1);
 

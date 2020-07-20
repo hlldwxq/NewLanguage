@@ -1,5 +1,9 @@
 
-uint64 threshold=16
+uint64 threshold=16 # Threshold must be at least 2
+
+def void pr(uint64 i);
+def void prl();
+
 
 def void swap(uint64* a, uint64 i, uint64 j) {
   uint64 t = a[i]
@@ -24,41 +28,74 @@ def void median_to_first(uint64* ptr, uint64 r, uint64 a, uint64 b, uint64 c) {
 
 }
 
-def uint64 partition(uint64* a, uint64 l, uint64 h, uint64 p) {
+def uint64 partition(uint64* a, uint64 first, uint64 last, uint64 p) {
   while (true) {
-    while (a[l] < a[p]) l=l+1
-    h=h-1
-    while (a[p] < a[h]) h=h-1
-    if (!(a[l] < a[h])) return l
-    swap(a,l,h)
-    l=l+1
+    while (a[first] < a[p]) {
+      first=first+1
+    }
+    last=last-1
+    while (a[p] < a[last]) {
+      last=last-1
+    }
+    if (!(first < last)) then return first
+    swap(a,first,last)
+    first=first+1
   }
+  return 0 # dummy return, unreachable but compiler does not detect it
 }
-
 
 def uint64 partition_pivot(uint64* a, uint64 l, uint64 h) {
   uint64 mid = l + (h-l)/2
-  median_to_first(l,l+1,mid,h-1)
+  median_to_first(a,l,l+1,mid,h-1)
+
   return partition(a,l+1,h,l)
-
-  xxx, ctd here
-
-      _RandomAccessIterator __mid = __first + (__last - __first) / 2;
-      std::__move_median_to_first(__first, __first + 1, __mid, __last - 1,
-				  __comp);
-      return std::__unguarded_partition(__first + 1, __last, __first, __comp);
-
 }
 
 
 def void quicksort_aux( uint64* a, uint64 l, uint64 h) {
-  if (h-l <= threshold) return;
 
-  uint64 m = partition_pivot(a,l,h);
+  if (h-l <= threshold) then return void
 
+  uint64 cut = partition_pivot(a,l,h)
 
-
+  quicksort_aux(a,cut,h)
+  quicksort_aux(a,l,cut)
 }
+
+
+
+xxx, ctd here: port final insertion sort
+code in stl_algo.h (for me: /usr/include/c++/7/bits/stl_algo.h)
+
+
+  template<typename _RandomAccessIterator, typename _Compare>
+    void
+    __unguarded_linear_insert(_RandomAccessIterator __last,
+			      _Compare __comp)
+    {
+      typename iterator_traits<_RandomAccessIterator>::value_type
+	__val = _GLIBCXX_MOVE(*__last);
+      _RandomAccessIterator __next = __last;
+      --__next;
+      while (__comp(__val, __next))
+	{
+	  *__last = _GLIBCXX_MOVE(*__next);
+	  __last = __next;
+	  --__next;
+	}
+      *__last = _GLIBCXX_MOVE(__val);
+    }
+
+
+
+
+
+
+
+
+def uint64 *newarray(uint64 n) { return new uint64[n] }
+def void setarray(uint64* a,uint64 i,uint64 x) { a[i]=x }
+def uint64 getarray(uint64* a,uint64 i) { return a[i] }
 
 
 

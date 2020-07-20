@@ -22,6 +22,7 @@ function prepare() {
 
   OUTDIR=$DIRNAME/out
   OUTBASE=$OUTDIR/$STEM.$CFGNAME
+  mkdir -p "$OUTDIR"
 
   echo -n "Testing $BASENAME ($CFGNAME), flags $FLAGS: "
 
