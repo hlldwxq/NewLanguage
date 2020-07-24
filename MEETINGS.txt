@@ -1,3 +1,29 @@
+# July 24
+
+Qiao implemented flags, completed introsort, heapsort, strings
+
+together: tried parallel tests, fixed introsort, benchmark introsort against std::sort
+
+TODO
+  * why is q-algo still slower, even without dyn-checks?
+    * inlining? Do not spend too much time on it!
+
+  * systematic benchmarks: compare runtimes with different combinations of flags, against C++
+    * make sure no background processes on computer while measuring
+    * repeat experiment a few times, take median
+    * automate via script!
+
+  * Benchmark introsort, heapsort (against C++ heapsort)
+
+  * Are there other interesting algorithms you want to implement?
+
+  * Compare with Java? (Careful to compare SAME algorithms, e.g. java sorting uses some mergesort by default)
+
+  Thesis writing:
+    * start with outline: chapters, a few sentences for each chapter what it contains
+
+
+
 # July 17+July20
 Qiao completed implemented IntConst stuff, fixed bugs
 
@@ -9,17 +35,17 @@ Together:
 
 
 TODO:
-  add regression tests:
+  DONE add regression tests:
     complex conditions in while/for loops -> Bug with invalid back-jump
     return void
 
-  enable array-bounds and use-after-free based on flag/config option
-  more fine grained flags, e.g.
+  DONE enable array-bounds and use-after-free based on flag/config option
+  DONE more fine grained flags, e.g.
     arith-checks: detect overflow on arith operations, e.g., 127+3 (sint8), 5/0, ...
     array-bound-checks: detect array index out of bounds
     free-checks: detect use after free, double-free
 
-  string type, string literals
+  DONE string type, string literals
 
   some error message do not have line number(because the error() of parser)
 

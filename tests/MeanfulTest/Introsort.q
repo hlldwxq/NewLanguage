@@ -67,7 +67,7 @@ def void unguarded_linear_insert(uint64* arr, uint64 last){
   uint64 val = arr[last]
   uint64 next = last - 1
 
-  while (next >= 0 & val < arr[next] ){
+  while (val < arr[next] ) {
     arr[last] = arr[next]
     last = next 
     next = next - 1
@@ -77,13 +77,13 @@ def void unguarded_linear_insert(uint64* arr, uint64 last){
 }
 
 def void moveToFirst(uint64* arr, uint64 first, uint64 i){
-  uint64 val = arr[i]
+#   uint64 val = arr[i]
   uint64 index = i
   while ( index > first){
     arr[index] = arr[index-1]
     index = index - 1
   }
-  arr[first] = val
+#   arr[first] = val
 }
 
 def void insertion_sort(uint64* arr, uint64 first, uint64 last) {      
@@ -122,9 +122,8 @@ def void final_insertion_sort(uint64* arr, uint64 first, uint64 last) {
 
 def void quicksort_aux( uint64* a, uint64 l, uint64 h) {
 
-  if (h-l <= threshold) 
-  then final_insertion_sort(a,l , h)
-  else{
+  if (h-l > threshold)
+  then {
     uint64 cut = partition_pivot(a,l,h)
     quicksort_aux(a,cut,h)
     quicksort_aux(a,l,cut)
@@ -135,9 +134,8 @@ def void quicksort_aux( uint64* a, uint64 l, uint64 h) {
 def void sort(uint64* arr, uint64 first, uint64 last){
   if first != last
   then {
-    if (last-first > threshold)
-    then quicksort_aux(arr, first, last)
-    else final_insertion_sort(arr, first, last)
+    quicksort_aux(arr, first, last)
+    final_insertion_sort(arr, first, last)
   }
 }
 

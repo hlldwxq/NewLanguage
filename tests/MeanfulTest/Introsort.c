@@ -20,34 +20,40 @@ void prs(char* x) {
   printf("%s ",x);
 }
 
-int check(int n){
+void check(int n){
   srand(0);
   array a = newarray(n);
   for (size_t i=0;i<n;++i) 
     setarray(a,i,rand()%n);
 
   sort(a,0,n);
-  for (size_t i=0;i<n-1;++i) {
+
+  for (size_t i=0;i+1<n;++i) {
     if (getarray(a,i) > getarray(a,i+1)) {
-      return 0;
+      printf("introsort failed\n");
+      exit(1);
+//       return 0;
     }
   }
-  return 1;
+//   return 1;
 }
 
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
-  int failed = 0;
-  
-  if(check(2)==0){ failed++; printf("introsort failed\n"); }
-  if(check(20)==0){ failed++; printf("introsort failed\n"); }
-  if(check(20)==0){ failed++; printf("introsort failed\n"); }
-  if(check(50)==0){ failed++; printf("introsort failed\n"); }
-  if(check(50)==0){ failed++; printf("introsort failed\n"); }
-  if(check(100)==0){ failed++; printf("introsort failed\n"); }
-  if(check(100)==0){ failed++; printf("introsort failed\n"); }
 
-  if(failed == 0){
-    printf("Success!\n");
-  }
+  
+  for (size_t i=0; i<10000000; i= i?i*2:1 ) check(i);
+
+
+//   check(0);
+//   check(1);
+//   check(2);
+//   check(20);
+//   check(20);
+//   check(50);
+//   check(50);
+//   check(100);
+//   check(100);
+
+  printf("Success!\n");
   return 0;
 }
