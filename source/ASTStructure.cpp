@@ -154,6 +154,9 @@ void ArrayDefAST::codegenStructure(){
 
 void StrDefAST::codegenStructure(){
     
+    if(value->getType()!= ASTType::stringT){
+        CommandAST::lerror("The value of global string must be string literal");
+    }
     GlobalVariable * globalV = globalInit();
    
     Function* F = globalInitFunc();
