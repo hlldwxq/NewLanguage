@@ -75,7 +75,7 @@ void FunctionAST::codegenStructure(){
     }
 
     scope.removeScope();
-    
+
 }
 
 Function* DefAST::globalInitFunc(){
@@ -104,6 +104,12 @@ GlobalVariable* DefAST::globalInit(){
     return globalV;
 }
 
+void createFunction(llvm::Value* rightV, GlobalVariable* globalV, Function* F){
+    Builder.CreateStore(rightV, globalV);
+    Builder.CreateRetVoid();
+    std::vector<QType*> argsT;
+    scope.addInitFunction(new QFunction(new ReturnType(),argsT,F));
+}
 
 void VarDefAST::codegenStructure(){
 
@@ -122,10 +128,8 @@ void VarDefAST::codegenStructure(){
         llvm::Value* rightV = qvalue->getValue();
         Function* F = globalInitFunc();
         
-        Builder.CreateStore(rightV, globalV);
-        Builder.CreateRetVoid();
-        std::vector<QType*> argsT;
-        scope.addInitFunction(new QFunction(new ReturnType(),argsT,F));
+        createFunction(rightV, globalV, F);
+        
     }
 }
 
@@ -142,9 +146,21 @@ void ArrayDefAST::codegenStructure(){
         if(!type->compare(rightQt)){
             CommandAST::lerror("The types on both sides of the equal sign must be the same");
         }
-        Builder.CreateStore(rightV, globalV);
-        Builder.CreateRetVoid();
-        std::vector<QType*> args;
-        scope.addInitFunction(new QFunction(new ReturnType(),args,F));
+
+        createFunction(rightV, globalV, F);
+        
     }
+}
+
+void StrDefAST::codegenStructure(){
+    
+    GlobalVariable * globalV = globalInit();
+   
+    Function* F = globalInitFunc();
+    QValue* qvalue = value->codegen();
+    qvalue = assignCast(qvalue,type);
+    llvm::Value* rightV = qvalue->getValue();
+
+    createFunction(rightV, globalV, F);
+   
 }

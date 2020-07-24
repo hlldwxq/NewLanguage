@@ -66,8 +66,18 @@ function do_test() {
 }
 
 function do_tests() {
-  FLAGS=$1
-  CFGNAME=$2
+  if [ $# -eq 2 ];
+  then
+      FLAGS=$1
+      CFGNAME=$2
+  elif [ $# -eq 3 ];
+  then
+      FLAGS="$1 $2"
+      CFGNAME=$3
+  else
+      FLAGS="$1 $2 $3"
+      CFGNAME=$4
+  fi
 
   for i in tests/dynamicCheck/*.q; do
     do_test $i
@@ -75,4 +85,77 @@ function do_tests() {
 
 }
 
+function do_tests_free() {
+  if [ $# -eq 2 ];
+  then
+      FLAGS=$1
+      CFGNAME=$2
+  elif [ $# -eq 3 ];
+  then
+      FLAGS="$1 $2"
+      CFGNAME=$3
+  else
+      FLAGS="$1 $2 $3"
+      CFGNAME=$4
+  fi
+
+  for i in tests/dynamicCheck/freeCheck/*.q; do
+    do_test $i
+  done
+
+}
+
+function do_tests_arith() {
+  if [ $# -eq 2 ];
+  then
+      FLAGS=$1
+      CFGNAME=$2
+  elif [ $# -eq 3 ];
+  then
+      FLAGS="$1 $2"
+      CFGNAME=$3
+  else
+      FLAGS="$1 $2 $3"
+      CFGNAME=$4
+  fi
+
+  for i in tests/dynamicCheck/arith/*.q; do
+    do_test $i
+  done
+
+}
+
+function do_tests_array() {
+  if [ $# -eq 2 ];
+  then
+      FLAGS=$1
+      CFGNAME=$2
+  elif [ $# -eq 3 ];
+  then
+      FLAGS="$1 $2"
+      CFGNAME=$3
+  else
+      FLAGS="$1 $2 $3"
+      CFGNAME=$4
+  fi
+
+  for i in tests/dynamicCheck/arrayBound/*.q; do
+    do_test $i
+  done
+
+}
+
 do_tests DyCheck dy
+do_tests check_arith check_free	check_array_bound arith_array_free
+
+do_tests_arith check_arith arith
+do_tests_arith check_arith check_array_bound arith_array
+do_tests_arith check_arith check_free arith_array
+
+do_tests_array check_array_bound array
+do_tests_array check_arith check_array_bound arith_array
+do_tests_array check_free	check_array_bound free_array
+
+do_tests_free check_free free
+do_tests_free check_free check_array_bound free_array
+do_tests_free check_free check_arith free_arith

@@ -1,15 +1,13 @@
 #include "../header/AST.h"
 #include "../header/ASTExpr.h"
 
-
-
 const QAlloca* VariableAST::codegenLeft(){
 
     const QAlloca* Alloca = scope.findSymbol(name);
     if(!Alloca){
         const QGlobalVariable* global = scope.findGlobalVar(name);
         if(!global){
-            error("the variable has not been declared");
+            lerror("the variable has not been declared");
         }
 
         Alloca = new QAlloca(global->getType(),global->getGlobalVariable());
@@ -27,48 +25,53 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     IntType* arraySizeType = new IntType(false,128); //if the size fix uint128
     arrI = assignCast(arrI,arraySizeType);
     if(!arrI){
-        error("the array index must be unsigned number");
+        lerror("the array index must be unsigned number");
     }
 
     Value* arrIndex = arrI->getValue();
 
-
     if(!left->getType()->getIsPointer()){
-        error("left expression must be a pointer");
+        lerror("left expression must be a pointer");
     }
 
     PointType* pt = dynamic_cast<PointType*>(left->getType());
     if(pt->isNull()){
-        error("the pointer has not been init");
+        lerror("the pointer has not been init");
     }
     
-    Value* arrayAddress;
-    if(doCheck){
-        
+    Value* arrayAddress = left->getValue();
+    if( doCheck[CheckLevel::check_free]){
         // check free
         arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
+        /*if( doCheck[CheckLevel::check_array_bound]){ 
+            arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
+        }else{
+            //arrayAddress = Builder.CreateStructGEP(left->getValue(),0);
+        }*/
         arrayAddress = Builder.CreateLoad(arrayAddress);
         Value* isNULL = Builder.CreateIsNull(arrayAddress);
         isNULL = Builder.CreateICmpEQ(isNULL, ConstantInt::get(isNULL->getType(),1,false));
 
         createBr("the array has been free",isNULL,line, "hasFree", "noFree");
-
+    }
+    
+    if(doCheck[CheckLevel::check_array_bound]){
         //check array size out of bound
+
         Value* arraySize = Builder.CreateStructGEP(left->getValue(),0);
         arraySize = Builder.CreateLoad(arraySize);
-        arrIndex = Builder.CreateIntCast(arrIndex, arraySize->getType(),false);
 
+        arrIndex = Builder.CreateIntCast(arrIndex, arraySize->getType(),false);
         Value* cmp = Builder.CreateICmpSLE(arraySize, arrIndex);
-        
         createBr("array out of bound", cmp,line, "outBound", "notOutBound");
 
-    }else{
-        arrayAddress = left->getValue();
+        arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
+        arrayAddress = Builder.CreateLoad(arrayAddress);
     }
 
     QType* elementT = pt->getElementType();
-    //TheModule->print(outs(), nullptr);
     llvm::Value* eleptr = Builder.CreateGEP(cast<PointerType>(arrayAddress->getType()->getScalarType())->getElementType(), arrayAddress,arrIndex);   
+
     const QAlloca* qv = new QAlloca(elementT,eleptr);
 
     return qv;
@@ -85,10 +88,14 @@ QValue* LeftValueAST::codegen() {
 }
 
 QValue* NumberExprAST::codegen(){
-    ConstantType* qtype = new ConstantType(value);
+    ConstantType* qtype = new ConstantType(value,line);
     llvm::Value* constInt = ConstantInt::get(TheContext,qtype->getValue().getValue());
-    //printf("; constant\n");
     return new QValue(qtype,constInt);
+}
+
+QValue* StringExprAST::codegen(){
+    Value* stringExpr = Builder.CreateGlobalStringPtr(str);
+    return new QValue(new StringType(), stringExpr);
 }
 
 QValue* ConstantBoolAST::codegen(){
@@ -105,7 +112,7 @@ QValue* UnaryExprAST::codegen(){
     }
     QValue* result = opCode->codegen(value);
     if(!result){
-        error("The data type after the unary operator nust be bool");
+        lerror("The data type after the unary operator nust be bool");
     }
     return result;
 }
@@ -116,7 +123,7 @@ QValue* BinaryExprAST::codegen(){
     QValue* rightQV = RHS->codegen();
 
     if(leftQV->getType()->getIsPointer() || rightQV->getType()->getIsPointer()){
-        error("The operands of a binary operator cannot be a pointer");
+        lerror("The operands of a binary operator cannot be a pointer");
     }
 
     if(leftQV->getType()->isConstant() && rightQV->getType()->isConstant()){
@@ -126,10 +133,10 @@ QValue* BinaryExprAST::codegen(){
     }
 
     if(rightQV->getType()->compare(new IntType(false,1)) && !leftQV->getType()->compare(new IntType(false,1))){
-        error("the boolean(uint1) cannot do binary calculation with int");
+        lerror("the boolean(uint1) cannot do binary calculation with int");
     }
     if(!rightQV->getType()->compare(new IntType(false,1)) && leftQV->getType()->compare(new IntType(false,1))){
-        error("the boolean(uint1) cannot do binary calculation with int");
+        lerror("the boolean(uint1) cannot do binary calculation with int");
     }
 
     if(leftQV->getType()->isConstant() || rightQV->getType()->isConstant()){
@@ -140,14 +147,14 @@ QValue* BinaryExprAST::codegen(){
             //the initial sign of 0 or positive constant number is unsigned, negative num is signed
             //now we could based on the context to decide the sign of num 
             if(!leftQV){
-                error("unvalid binary calculation between signed number and unsigned number");
+                lerror("unvalid binary calculation between signed number and unsigned number");
             }
         }else{
             
             IntType* leftInt = dynamic_cast<IntType*>(leftQV->getType());
             rightQV = constAdjustSign(rightQV,leftInt->getSigned());
             if(!rightQV){
-                error("unvalid binary calculation between signed number and unsigned number");
+                lerror("unvalid binary calculation between signed number and unsigned number");
             }
         }
     }
@@ -156,7 +163,7 @@ QValue* BinaryExprAST::codegen(){
     IntType* rightInt = dynamic_cast<IntType*>(rightQV->getType());
 
     if(leftInt->getSigned()!=rightInt->getSigned()){
-        error("invalid binary calculation between signed number and unsigned number");
+        lerror("invalid binary calculation between signed number and unsigned number");
     }
 
     if(leftInt->getWidth()!=rightInt->getWidth()){
@@ -194,7 +201,7 @@ void intCastCheck(Type* qtype, Value* value, int line){
 }
 
 QValue* NewExprAST::codegen(){
-    
+
     // get the size of target platform
     unsigned length = sizet->getIntegerBitWidth();
     if(length==0)
@@ -206,11 +213,11 @@ QValue* NewExprAST::codegen(){
     IntType* arraySizeType = new IntType(false,128); //if the size fix uint128
     sizeValue = assignCast(sizeValue,arraySizeType);
     if(!sizeValue){
-        error("the size of array must be unsigned number");
+        lerror("the size of array must be unsigned number");
     }
-
+ 
     Value* arraySize = sizeValue->getValue();
-    //QType* sizeType = sizeValue->getType();
+
 
     //cast arraysize
     intCastCheck(sizet, arraySize,line);
@@ -221,7 +228,7 @@ QValue* NewExprAST::codegen(){
     Value* mallocSize = ConstantExpr::getSizeOf(type->getElementType()->getLLVMType()); //the return type of getSizeOf is i64
     intCastCheck(sizet, mallocSize,line);
     mallocSize = Builder.CreateIntCast(mallocSize,sizet,false); 
-    
+
 
     //check overflow when mul arraysize and malloc size
     star* starOp = new star(line);
@@ -232,26 +239,42 @@ QValue* NewExprAST::codegen(){
     Value* malloc_value = Builder.Insert(malloc_inst);
 
     // new code
-    if(doCheck){
+    if(doCheck[CheckLevel::check_array_bound] || doCheck[CheckLevel::check_free]){
+        assert(type->getStructType()!=nullptr);
         Value* struct_size = ConstantExpr::getSizeOf(type->getStructType());
 
         // call malloc normally
         Instruction* struct_malloc = CallInst::CreateMalloc(Builder.GetInsertBlock(),sizet,type->getStructType(),struct_size,nullptr,nullptr,"");
         Value* result = Builder.Insert(struct_malloc);
-        //llvm::AllocaInst* result = Builder.CreateAlloca(type->getStructType());
 
-        // assign
         Value* sizeAddress = Builder.CreateStructGEP(result,0);
         Builder.CreateStore(arraySize,sizeAddress);
 
         Value* arrayAddress = Builder.CreateStructGEP(result,1);
         Builder.CreateStore(malloc_value,arrayAddress);
-        
+
+        /*if(doCheck[CheckLevel::check_array_bound] || doCheck[CheckLevel::check_free]){
+            // assign
+            
+            Value* sizeAddress = Builder.CreateStructGEP(result,0);
+            Builder.CreateStore(arraySize,sizeAddress);
+
+            Value* arrayAddress = Builder.CreateStructGEP(result,1);
+            Builder.CreateStore(malloc_value,arrayAddress);
+
+        }
+        else {
+            // assign
+            
+            Value* arrayAddress = Builder.CreateStructGEP(result,0);
+            Builder.CreateStore(malloc_value,arrayAddress);
+        }*/
+
         return new QValue(type,result); 
     }else{
         return new QValue(type,malloc_value);
     }
-    //TheModule->print(outs(), nullptr);
+
 }
 
 QValue* NullExprAST::codegen(){

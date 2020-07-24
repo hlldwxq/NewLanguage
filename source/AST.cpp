@@ -9,7 +9,7 @@ LLVMContext TheContext;
 IRBuilder<> Builder(TheContext);
 std::unique_ptr<Module> TheModule;
 std::unique_ptr<TargetMachine> TM;
-bool doCheck;
+bool* doCheck = NULL;
 llvm::Type* sizet;
 Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
 
@@ -234,16 +234,42 @@ void initModule(std::string fileName){
     llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
     sizet = dataLayOut->getLargestLegalIntType(TheContext);
 }
+
+void isCheckLevelValid(){
+    if( !doCheck[CheckLevel::check_array_bound] && doCheck[CheckLevel::check_free]){
+        error("if you want to do free check, you must do array bound check together");
+    }
+}
+
 //does user need dnamic check
 void initCheck(std::string check){
+    if(doCheck == NULL){
+        doCheck = new bool[3];
+        doCheck[CheckLevel::check_arith] = false;
+        doCheck[CheckLevel::check_free] = false;
+        doCheck[CheckLevel::check_array_bound] = false;
+    }
     if(check == "DyCheck"){
-        doCheck = true;
+        doCheck[CheckLevel::check_arith] = true;
+        doCheck[CheckLevel::check_free] = true;
+        doCheck[CheckLevel::check_array_bound] = true;
     }
     else if(check == "notDyCheck"){
-        doCheck = false;
-    }else{
-        printf("; need DyCheck or notDyCheck\n");
-        exit(1);
+        doCheck[CheckLevel::check_arith] = false;
+        doCheck[CheckLevel::check_free] = false;
+        doCheck[CheckLevel::check_array_bound] = false;
+    }
+    else if(check == "check_arith"){
+        doCheck[CheckLevel::check_arith] = true;
+    }
+    else if(check == "check_free"){
+        doCheck[CheckLevel::check_free] = true;
+    }
+    else if(check == "check_array_bound"){
+        doCheck[CheckLevel::check_array_bound] = true;
+    }
+    else{
+        error("unexpected flag: "+check+"\nonly allow check_arith, check_free, check_array_bound");
     }
 }
 
@@ -292,6 +318,7 @@ QValue* constAdjustSign(QValue* num, bool isSigned){
 
 }
 
+//just for int type
 QValue* upCast(QValue* qv, IntType* type){
     llvm::Value* newQv = Builder.CreateIntCast(qv->getValue(),type->getLLVMType(),type->getSigned());
     IntType* newType = new IntType(type->getSigned(),type->getWidth());
@@ -304,8 +331,18 @@ QValue* assignCast(QValue* varValue, QType* leftT){
     if(varValue->getType()!=NULL && leftT->getIsPointer() != varValue->getType()->getIsPointer()){
         return NULL;
     }
+
+    if(varValue->getType()!=NULL && leftT->isString() != varValue->getType()->isString()){
+        return NULL;
+    }
+
+    if(leftT->isString()){
+        return varValue;
+    }
+
     // variable or arrayIndex
     if(!leftT->getIsPointer()){
+
         if(varValue->getType()==NULL || varValue->getValue()==NULL){ 
             return NULL;
         }
@@ -337,11 +374,13 @@ QValue* assignCast(QValue* varValue, QType* leftT){
         }        
     }else{
         if(varValue->getType()==NULL && varValue->getValue()==NULL){ //null
+
             PointType* leftP = dynamic_cast<PointType*>(leftT);
             PointType* nullPtr = new PointType(leftP->getElementType(),true);
             varValue = new QValue(nullPtr, Constant::getNullValue(leftT->getLLVMType()));
         }
         else{
+
             PointType* leftP = dynamic_cast<PointType*>(leftT);
             PointType* rightP = dynamic_cast<PointType*>(varValue->getType());
             if(!(rightP->isNull()) && !(leftP->compare(rightP))){
@@ -350,7 +389,6 @@ QValue* assignCast(QValue* varValue, QType* leftT){
             if(leftP->isNull()){
                 leftP->setNull( rightP->isNull());
             }
-            
         }
     }
 
@@ -360,18 +398,18 @@ QValue* assignCast(QValue* varValue, QType* leftT){
 //call error and exit function when overflow
 void callError(std::string info, int line){
 
-    llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
-    Type* qtype = dataLayOut->getLargestLegalIntType(TheContext);
+   // llvm::DataLayout* dataLayOut = new llvm::DataLayout(TheModule.get());
+   // Type* qtype = dataLayOut->getLargestLegalIntType(TheContext);
 
     std::vector<llvm::Type*> args;
     args.push_back(Type::getInt8PtrTy(TheContext));
-    args.push_back(qtype); //line number
-    llvm::Type* returnT = qtype; //return type
+    args.push_back(sizet); //line number
+    llvm::Type* returnT = sizet; //return type
     FunctionType *FT = FunctionType::get(returnT,args,false);
     FunctionCallee PrintFunc = TheModule->getOrInsertFunction("printf", FT);
 
     std::string str = info + " at line: %d\n";
-    Constant *lineN = ConstantInt::get(qtype, line);
+    Constant *lineN = ConstantInt::get(sizet, line);
 
     const char *str_ptr = str.c_str();
     Value *globalStrPtr = Builder.CreateGlobalStringPtr(str_ptr);
@@ -383,12 +421,13 @@ void callError(std::string info, int line){
     assert(F);
     Builder.CreateCall(F,ArgsV);
 
+    //call exit
     std::vector<llvm::Type*> exitargs;
-    exitargs.push_back(qtype);
+    exitargs.push_back(sizet);
     llvm::Type* exitreturnT = llvm::Type::getVoidTy(TheContext);
     FunctionType *exitFT = FunctionType::get(exitreturnT,exitargs,false);
     FunctionCallee exitFunc = TheModule->getOrInsertFunction("exit", exitFT);
-    llvm::Value* one = ConstantInt::get(qtype, 1);
+    llvm::Value* one = ConstantInt::get(sizet, 1);
 
     if (Function *F = dyn_cast<Function>(exitFunc.getCallee())) {
        Builder.CreateCall(F,one);

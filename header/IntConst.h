@@ -11,8 +11,10 @@ extern bool checkRange(llvm::APInt apint, bool isSigend);
 class IntConst {
 private:
   llvm::APInt apValue;
-
-  IntConst(llvm::APInt _apValue) : apValue(_apValue) {}
+  int line;
+  IntConst(llvm::APInt _apValue,int line1) : apValue(_apValue) {
+    line = line1;
+  }
 
   template<typename OP> llvm::APInt binop_adjust(OP f, llvm::APInt const &a, llvm::APInt const &b) const {
     unsigned width = std::max(a.getBitWidth(),b.getBitWidth());
@@ -40,7 +42,8 @@ private:
       res = f(aa,bb,ov);
       if (!ov) break;
 
-      if (width > std::numeric_limits<unsigned>::max() / 2) error("Constant arithmetic overflow"); 
+      if (width > std::numeric_limits<unsigned>::max() / 2) 
+        error("Constant arithmetic overflow at line: "+std::to_string(line)); 
       // Maybe APInt will hit some limits before that. TODO: Check if it is undefined behaviour then!
       // I checked it, it is not a undefined behaviour
 
@@ -49,16 +52,17 @@ private:
 
     if(res.getBitWidth()>128){
         if(checkRange(res,res.isNegative())){
-            error("invalid number because it is too big or too small ("+ std::to_string(res.getBitWidth()) +" bits)");
+            error("invalid number because it is too big or too small ("+ std::to_string(res.getBitWidth()) +" bits) at line: "+std::to_string(line));
         }
     }
     return res;
   }
 
 public:
-  IntConst(std::string v) {
+  IntConst(std::string v,int line1) {
       
     assert(v!="");
+    line = line1;
     bool sgn = false;
     if(v[0]=='-'){
       sgn = true;
@@ -112,14 +116,14 @@ public:
 
   IntConst uminus() const {
     llvm::APInt z = llvm::APInt(getWidth(),"0",10);
-    return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.ssub_ov(b,ov);},z,apValue);
+    return IntConst(binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.ssub_ov(b,ov);},z,apValue),line);
   }
 
-  IntConst plus(IntConst const& b) const {  return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.sadd_ov(b,ov);},apValue,b.getValue()); }
-  IntConst minus(IntConst const& b) const { return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.ssub_ov(b,ov);},apValue,b.getValue()); }
-  IntConst mul(IntConst const& b) const {   return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.smul_ov(b,ov);},apValue,b.getValue()); }
-  IntConst div(IntConst const& b) const {   return binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.sdiv_ov(b,ov);},apValue,b.getValue()); }
-  IntConst rem(IntConst const& b) const {   return binop_adjust([](APInt a, APInt b){return a.srem(b);},apValue,b.getValue()); }
+  IntConst plus(IntConst const& b) const {  return IntConst(binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.sadd_ov(b,ov);},apValue,b.getValue()),line); }
+  IntConst minus(IntConst const& b) const { return IntConst(binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.ssub_ov(b,ov);},apValue,b.getValue()),line); }
+  IntConst mul(IntConst const& b) const {   return IntConst(binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.smul_ov(b,ov);},apValue,b.getValue()),line); }
+  IntConst div(IntConst const& b) const {   return IntConst(binop_adjust_ovf([](APInt const &a, APInt const &b,bool &ov){return a.sdiv_ov(b,ov);},apValue,b.getValue()),line); }
+  IntConst rem(IntConst const& b) const {   return IntConst(binop_adjust([](APInt a, APInt b){return a.srem(b);},apValue,b.getValue()),line); }
 
   bool eq(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.eq(b);},apValue,b.getValue()); }
   bool ne(IntConst const& b) const { return cmpop_adjust([](APInt const &a, APInt const &b){return a.ne(b);},apValue,b.getValue()); }
@@ -134,7 +138,7 @@ public:
     auto aa = apValue.sextOrTrunc(width);
     auto bb = b.getValue().sextOrTrunc(width);
 
-    return IntConst(aa&=bb);
+    return IntConst(aa&=bb,line);
   }
 
   IntConst bit_or(IntConst const &b) const {
@@ -142,7 +146,7 @@ public:
     auto aa = apValue.sextOrTrunc(width);
     auto bb = b.getValue().sextOrTrunc(width);
 
-    return IntConst(aa|=bb);
+    return IntConst(aa|=bb,line);
   }
 
 };

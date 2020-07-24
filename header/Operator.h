@@ -169,7 +169,7 @@ public:
             error("boolean (uint1) cannot be as the operand of arithmatic operand at Line: "+std::to_string(line));
         }
 
-        if(doCheck){
+        if(doCheck[CheckLevel::check_arith]){
             llvm::Value* result = OverFlowCheck(a,b);
             return new QValue(a->getType(), result);
         }else{
@@ -182,7 +182,7 @@ public:
     virtual QValue* constantCodegen(IntConst left, IntConst right){
         IntConst result = gen_constant(left,right);
 
-        ConstantType* qtype = new ConstantType(result);
+        ConstantType* qtype = new ConstantType(result,line);
         llvm::Value* constInt =  ConstantInt::get(TheContext, result.getValue());
         return new QValue(qtype,constInt);
     }

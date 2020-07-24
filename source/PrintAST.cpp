@@ -31,6 +31,9 @@ void ConstantType::printAST() const{
     printf("%s", value.getValue().toString(10,true).c_str()); // TODO: implement!
 }
 
+void StringType::printAST() const{
+    printf("string");
+}
 void exclamation::printAST(){
     printf("!");
 }
@@ -124,6 +127,13 @@ void NumberExprAST::printAST(int level){
         printf(" ");
     }
     printf("%s",value.c_str());
+}
+
+void StringExprAST::printAST(int level){
+    for(int i=0;i<level;i++){
+        printf(" ");
+    }
+    printf("%s",str.c_str());
 }
 
 void ConstantBoolAST::printAST(int level){
@@ -237,6 +247,31 @@ void VarDefAST::printAST(int level){
         printf(" ");
     }
     printf("Variable def:\n");
+
+    for(int i=0;i<level;i++){
+        printf(" ");
+    }
+    printf("  type: ");
+    type->printAST();
+    printf("\n");
+    for(int i=0;i<level;i++){
+        printf(" ");
+    }
+    printf("  name: %s \n",name.c_str());
+    for(int i=0;i<level;i++){
+        printf(" ");
+    }
+    printf("  value: \n");
+    value->printAST(level+4);
+
+}
+
+void StrDefAST::printAST(int level){
+    for(int i=0;i<level;i++){
+        printf(" ");
+    }
+    printf("String def:\n");
+
     for(int i=0;i<level;i++){
         printf(" ");
     }

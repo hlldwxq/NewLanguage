@@ -3,7 +3,7 @@ uint64 threshold=16 # Threshold must be at least 2
 
 def void pr(uint64 i);
 def void prl();
-
+def void prs(string s);
 
 def void swap(uint64* a, uint64 i, uint64 j) {
   uint64 t = a[i]
@@ -12,6 +12,7 @@ def void swap(uint64* a, uint64 i, uint64 j) {
 }
 
 def void median_to_first(uint64* ptr, uint64 r, uint64 a, uint64 b, uint64 c) {
+
   if ptr[a] < ptr[b] then {
     if ptr[b] < ptr[c] then
       swap(ptr,r,b)
@@ -25,7 +26,6 @@ def void median_to_first(uint64* ptr, uint64 r, uint64 a, uint64 b, uint64 c) {
     swap(ptr,r,c)
   else
     swap(ptr,r,b)
-
 }
 
 def uint64 partition(uint64* a, uint64 first, uint64 last, uint64 p) {
@@ -37,7 +37,9 @@ def uint64 partition(uint64* a, uint64 first, uint64 last, uint64 p) {
     while (a[p] < a[last]) {
       last=last-1
     }
-    if (!(first < last)) then return first
+    if (!(first < last)) 
+    then return first
+    
     swap(a,first,last)
     first=first+1
   }
@@ -51,52 +53,95 @@ def uint64 partition_pivot(uint64* a, uint64 l, uint64 h) {
   return partition(a,l+1,h,l)
 }
 
-
-def void quicksort_aux( uint64* a, uint64 l, uint64 h) {
-
-  if (h-l <= threshold) then return void
-
-  uint64 cut = partition_pivot(a,l,h)
-
-  quicksort_aux(a,cut,h)
-  quicksort_aux(a,l,cut)
+def void move_cut( uint64* a, uint64 cut){
+  uint64 val = a[0]
+  for uint64 i=0, i<cut, 1{
+    a[i] = a[i+1]
+  }
+  a[cut] = val
 }
 
 
 
-xxx, ctd here: port final insertion sort
-code in stl_algo.h (for me: /usr/include/c++/7/bits/stl_algo.h)
+def void unguarded_linear_insert(uint64* arr, uint64 last){
+  uint64 val = arr[last]
+  uint64 next = last - 1
+
+  while (next >= 0 & val < arr[next] ){
+    arr[last] = arr[next]
+    last = next 
+    next = next - 1
+  }
+
+  arr[last] = val
+}
+
+def void moveToFirst(uint64* arr, uint64 first, uint64 i){
+  uint64 val = arr[i]
+  uint64 index = i
+  while ( index > first){
+    arr[index] = arr[index-1]
+    index = index - 1
+  }
+  arr[first] = val
+}
+
+def void insertion_sort(uint64* arr, uint64 first, uint64 last) {      
+  
+  if (first == last) 
+  then  return void       
+  
+  for uint64 i = first + 1, i != last, 1	{	  
+    if ( arr[i] < arr[first] ) 
+    then {	     
+      uint64 val = arr[i]	    
+      moveToFirst( arr, first, i)	      
+      arr[first] = val	    
+    }	  
+    else	   
+      unguarded_linear_insert(arr, i)
+  }    
+}
+
+def void unguarded_insertion_sort( uint64* arr, uint64 first, uint64 last) {           
+    for uint64 i = first, i != last, 1
+      unguarded_linear_insert(arr, i)   
+}
+
+def void final_insertion_sort(uint64* arr, uint64 first, uint64 last) {      
+  
+  if (last-first > threshold)	
+  then {	  
+    insertion_sort(arr, first, first+threshold)	  
+    unguarded_insertion_sort(arr, first+threshold, last)	
+  }     
+  else	
+    insertion_sort(arr, first, last)  
+}
 
 
-  template<typename _RandomAccessIterator, typename _Compare>
-    void
-    __unguarded_linear_insert(_RandomAccessIterator __last,
-			      _Compare __comp)
-    {
-      typename iterator_traits<_RandomAccessIterator>::value_type
-	__val = _GLIBCXX_MOVE(*__last);
-      _RandomAccessIterator __next = __last;
-      --__next;
-      while (__comp(__val, __next))
-	{
-	  *__last = _GLIBCXX_MOVE(*__next);
-	  __last = __next;
-	  --__next;
-	}
-      *__last = _GLIBCXX_MOVE(__val);
-    }
+def void quicksort_aux( uint64* a, uint64 l, uint64 h) {
+
+  if (h-l <= threshold) 
+  then final_insertion_sort(a,l , h)
+  else{
+    uint64 cut = partition_pivot(a,l,h)
+    quicksort_aux(a,cut,h)
+    quicksort_aux(a,l,cut)
+  }
+}
 
 
-
-
-
-
-
+def void sort(uint64* arr, uint64 first, uint64 last){
+  if first != last
+  then {
+    if (last-first > threshold)
+    then quicksort_aux(arr, first, last)
+    else final_insertion_sort(arr, first, last)
+  }
+}
 
 def uint64 *newarray(uint64 n) { return new uint64[n] }
 def void setarray(uint64* a,uint64 i,uint64 x) { a[i]=x }
 def uint64 getarray(uint64* a,uint64 i) { return a[i] }
-
-
-
 

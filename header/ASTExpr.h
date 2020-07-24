@@ -61,6 +61,22 @@ public:
     QValue* codegen();
 };
 
+// constant string
+class StringExprAST : public ExprAST{
+    std::string str;
+public:
+    StringExprAST(std::string str1, int line1):ExprAST(ASTType::stringT,line1){
+        str = str1;
+    }
+    std::string getString(){
+        return str;
+    }
+
+    void printAST(int level=0);
+    QValue* codegen();
+
+};
+
 //true or false
 class ConstantBoolAST : public ExprAST{
     bool b;

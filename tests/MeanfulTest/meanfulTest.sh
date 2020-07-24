@@ -64,8 +64,19 @@ function do_test() {
 }
 
 function do_tests() {
-  FLAGS=$1
-  CFGNAME=$2
+  if [ $# -eq 2 ];
+  then
+      FLAGS=$1
+      echo "$FLAGS"
+      CFGNAME=$2
+  elif [ $# -eq 3 ];
+  then
+      FLAGS="$1 $2"
+      CFGNAME=$3
+  else
+      FLAGS="$1 $2 $3"
+      CFGNAME=$4
+  fi
 
   for i in tests/MeanfulTest/*.q; do
     do_test $i
@@ -73,6 +84,17 @@ function do_tests() {
 
 }
 
+
 do_tests DyCheck dy
 do_tests notDyCheck ndy
+
+do_tests check_arith arith
+do_tests check_array_bound array
+do_tests check_free free
+
+do_tests check_arith check_array_bound arith_array
+do_tests check_free	check_array_bound free_array
+do_tests check_free	check_arith free_arith
+
+do_tests check_arith check_free	check_array_bound arith_array_free
 

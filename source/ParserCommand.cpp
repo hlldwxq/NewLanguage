@@ -33,8 +33,6 @@ std::unique_ptr<AssignAST> Parser::ParseAssign(std::string name){
     
     if(CurTok != Token::assignment){
         error("unexpected symbol in assign at line: "+std::to_string(lineN));
-       // ErrorQ("unexpected symbol in assign", lineN);
-       // return nullptr;
     }
 
     getNextToken(); //eat =
@@ -109,8 +107,6 @@ std::unique_ptr<BlockAST> Parser::ParseBlock(){
 
     if(CurTok != Token::right_brace){
         error("expect } at line: "+std::to_string(lineN));
-       // ErrorQ("expect }",lineN);
-       // return nullptr;
     }
     getNextToken(); //eat }
 
@@ -168,13 +164,12 @@ std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global=false){
 
     if(CurTok!=Token::tok_identifier){
         error("expect name at line: "+std::to_string(lineN));
-        //ErrorQ("except name", lineN);
-        //return nullptr;
     }
+
     std::string name = IdentifierStr;
     getNextToken(); //eat name
 
-    if(!type->getIsPointer()){
+    if(!type->getIsPointer() && !type->isString()){
         std::unique_ptr<ExprAST> value;
         if(CurTok != Token::assignment){
             //default value
@@ -182,13 +177,23 @@ std::unique_ptr<DefAST> Parser::ParseVariableDef(bool global=false){
         }
         else{
             getNextToken(); //eat =
-           
-            value = ParseExpr();
-            if(value==nullptr)
-                return nullptr;              
+            value = ParseExpr();             
         }
         return std::make_unique<VarDefAST>(dynamic_cast<IntType*>(type),name,std::move(value),line1,global);
-    }else{
+    }else if(type->isString()){
+        std::unique_ptr<ExprAST> value;
+        if(CurTok != Token::assignment){
+            //default value
+            value = std::make_unique<StringExprAST>("",line1);
+        }
+        else{
+            getNextToken(); //eat =
+            value = ParseExpr();             
+        }
+        return std::make_unique<StrDefAST>(dynamic_cast<StringType*>(type),name,std::move(value),line1,global);
+
+    }
+    else{
         std::unique_ptr<ExprAST> right;
         
         // if the indexs is empty, codegen should init the pointer as null
@@ -230,30 +235,6 @@ std::unique_ptr<ForAST> Parser::ParseFor(){
     getNextToken(); //eat ,
 
     std::unique_ptr<ExprAST> step =ParseExpr();
-    /*if(CurTok != Token::tok_number){
-        if(CurTok==Token::minus){
-            getNextToken(); //eat -
-            if(CurTok != Token::tok_number){
-                error("unexpected number at for step at line: "+std::to_string(lineN));
-            }
-            std::string num = NumStr;
-            getNextToken();
-            if(num == "0"){
-                error("-0 is invalid at line: "+std::to_string(lineN));
-            }
-            if(num[0]=='+')
-                num[0] = '-';
-            else
-                num[0] = '+';
-            
-            step = std::make_unique<NumberExprAST>(num,lineN);
-        }else{
-            step = std::make_unique<NumberExprAST>("+1",lineN);
-        }
-    }
-    else{
-        step = ParseNumberExpr();
-    }*/
 
     std::unique_ptr<CommandAST> cmds = ParseCommand();
     if(cmds->isRet()||cmds->isBreak())
@@ -324,10 +305,7 @@ std::unique_ptr<CommandAST> Parser::ParseCommand(){
             return ParseVariableDef(false);
         } else
         {   
-            //std::cout<<CurTok<<std::endl;
             error("unexpect command at line: "+std::to_string(lineN));
-           // ErrorQ("unexpected Command", lineN);
-           // return nullptr;
         }
         break;
     }

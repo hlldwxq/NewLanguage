@@ -45,6 +45,8 @@ enum class Token
 {
 	tok_eof,
 
+	tok_print,
+
 	// Function
 	tok_def ,
     tok_void,
@@ -52,6 +54,7 @@ enum class Token
 
 	tok_identifier,
 	tok_number,
+	tok_string,
 
 	// control
 	tok_if ,
@@ -84,6 +87,8 @@ enum class Token
     tok_true,
     tok_false,
 
+	tok_stringType,
+
 	//symbol
 	equal_sign,  //==
 	not_equal,   //!=
@@ -107,13 +112,12 @@ enum class Token
 	exclamation_point,    // !
 	assignment,           // =
 	semicolon,			  // ;
+	quotation_mark,       // '
 	error_token
 };
 
-
 class Parser {
 private:
-
 
 	std::string fileName;
 	std::string fileStr;
@@ -121,10 +125,11 @@ private:
 	int charIndex = 0;
 	Token CurTok;
 	std::string IdentifierStr; // Filled in if tok_identifier
-	long long NumVal;		   // Filled in if tok_number
+	//long long NumVal;		   // Filled in if tok_number
 							   // although -9 will be regarded as two tokens, - and 9
 							   // I still use signed num instead of unsigned 
 	std::string NumStr;
+	std::string Str;
 	//bool isPos;
 	unsigned long retNumForCurrfunc = 0;
 	std::map<Token, int> BinopPrecedence;
@@ -143,6 +148,7 @@ private:
 	std::unique_ptr<ConstantBoolAST> ParseBoolConstantExpr();
 	std::unique_ptr<NullExprAST> ParseNullExpr();
 	std::unique_ptr<NumberExprAST> ParseNumberExpr();
+	std::unique_ptr<StringExprAST> ParseStringExpr();
 	std::unique_ptr<CallExprAST> ParseCallExpr(std::string functionName);
 	std::unique_ptr<ArrayIndexExprAST> ParseArrayIndexExpr(std::unique_ptr<ExprAST> left);
 	std::unique_ptr<ExprAST> ParseIdentifierExpr();

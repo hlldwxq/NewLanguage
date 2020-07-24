@@ -117,6 +117,6 @@ def sint64 intAssignCall(sint64 a){
     return b
 }
 def sint64 intAssignBinary(sint64 a){
-    sint64 b = a*1
+    sint64 b = a *1
     return b
 }

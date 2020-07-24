@@ -43,6 +43,16 @@ public:
     void printAST(int level=0);
 };
 
+/// StrDefAST
+class StrDefAST : public DefAST{
+public:
+    StrDefAST(StringType* type1, std::string n, std::unique_ptr<ExprAST> v, int line1, bool global)
+             :DefAST(type1,n,std::move(v),line1,global,ASTType::strDef){
+    }
+    void codegenStructure();
+    void printAST(int level=0);
+};
+
 ///ArrayDefAST
 class ArrayDefAST : public DefAST{
 public:

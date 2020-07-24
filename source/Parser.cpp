@@ -106,6 +106,9 @@ Token Parser::gettok(){
             return Token::tok_ui64;
         if(IdentifierStr == "uint128")
             return Token::tok_ui128;
+        if(IdentifierStr == "string"){
+            return Token::tok_stringType;
+        }
         if(IdentifierStr == "true")
             return Token::tok_true;
         if(IdentifierStr == "false")
@@ -139,6 +142,26 @@ Token Parser::gettok(){
         }
 
         return Token::tok_number;
+    }
+
+    if (LastChar == '\"'){
+        Str = "";
+        LastChar = getChar();
+
+        if(LastChar != '\"'){
+            
+            do{
+                if(LastChar == EOF){
+                    error("expect \" at the end of string at line: "+std::to_string(lineN));
+                }
+                Str += LastChar;
+                LastChar = getChar();
+            }while(LastChar!='\"');
+
+            LastChar = getChar();
+            
+        }
+        return Token::tok_string;
     }
 
     // symbol
@@ -262,7 +285,7 @@ Token Parser::gettok(){
 Token Parser::getNextToken(){   
     CurTok = gettok();
     if(CurTok == Token::error_token){
-        error("unvalid character or word");
+        error("unvalid character or word at line: "+std::to_string(lineN));
         //exit(1);
     } 
 
@@ -286,17 +309,27 @@ bool Parser::isType(){
         return true;
     if( CurTok == Token::tok_si1 || CurTok == Token::tok_si8|| CurTok == Token::tok_si16|| CurTok == Token::tok_si32 || CurTok == Token::tok_si64||  CurTok == Token::tok_si128 )
         return true;
+    if( CurTok == Token::tok_stringType )
+        return true;
+
     return false;
 }
 
 QType* Parser::ParseType(){
     
     if(!isType()){
-        error("except a type");
+        error("except a type at line: "+std::to_string(lineN));
         //return NULL;
     }
+
+    if(CurTok == Token::tok_stringType){
+        getNextToken();
+        return new StringType();
+    }
+
     unsigned long long width;
     bool isSigned;
+
     switch(CurTok){
         case Token::tok_si1:
         width = 1;
@@ -347,7 +380,7 @@ QType* Parser::ParseType(){
         isSigned = false;
         break;
         default:
-        error("expect a type");
+        error("expect a type at line: "+std::to_string(lineN));
         return nullptr;
     }
     QType* type = new IntType(isSigned,width);

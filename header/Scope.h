@@ -13,10 +13,21 @@ class Scope{
     typename std::map<std::string,const T1*> functionTable;
     typename std::map<std::string,const T2*> globalVariable;
     std::vector<const T1*> initFunction; //init global var
+    std::map<const llvm::Constant*,int> strLiteral; //str vector
     const T3* retType = NULL;
     llvm::BasicBlock* breakBB = NULL;
 
 public:
+
+    void addStr(llvm::Constant* s,int length){
+        strLiteral[s] = length;
+    }
+
+    llvm::Constant* findStr(std::string str){
+        llvm::Constant* result = nullptr;
+        
+        return result;
+    }
 
     void addInitFunction(T1* f){
         initFunction.push_back(f);

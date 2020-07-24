@@ -34,7 +34,6 @@
 #include "Scope.h"
 #include "IntConst.h"
 
-
 using namespace llvm;
 using namespace llvm::Intrinsic;
 
@@ -48,7 +47,7 @@ int getBitOfAPInt(llvm::APInt value, bool isSigned);
 bool checkRange(std::string str, bool isSignd);
 bool checkRange(llvm::APInt apint, bool isSigend);
 void createBr(std::string errorMessage,Value* cmp,int line,std::string bbNameE, std::string bbNameN);
-
+void isCheckLevelValid();
 //other functions are at the end of the file
 
 extern std::map<int,std::string> maxIntSignedValue;
@@ -60,7 +59,7 @@ extern LLVMContext TheContext;
 extern IRBuilder<> Builder;
 extern std::unique_ptr<Module> TheModule;
 extern std::unique_ptr<TargetMachine> TM;
-extern bool doCheck;
+extern bool* doCheck;
 extern llvm::Type* sizet;
 
 //the scope is at the end of the file
@@ -88,6 +87,7 @@ enum class ASTType{
 	var_or_pointer,
 	arrayIndex,
 	number,
+    stringT,
 	call,
     boolT,
 
@@ -101,6 +101,7 @@ enum class ASTType{
     newT,
     freeT,
 	varDef,
+    strDef,
 	arrayDef,
     assign,
 	function,
@@ -128,6 +129,12 @@ enum class Operators{
 
 };
 
+enum CheckLevel{
+	check_arith,
+	check_free,
+	check_array_bound
+};
+
 // type class
 class QType{
     bool isPointer;
@@ -141,6 +148,7 @@ public:
     virtual llvm::Type* getLLVMType() const = 0;
     virtual void printAST() const = 0; 
     virtual bool isConstant() const = 0;
+    virtual bool isString() const = 0;
     virtual bool compare(QType const* ty) const = 0;
 };
 
@@ -180,6 +188,25 @@ public:
 
 };
 
+class StringType : public QType{
+public:
+    StringType():QType(false){
+
+    }
+    bool getIsPointer() const{return false;}
+    llvm::Type* getLLVMType() const{
+        return PointerType::get(Type::getIntNTy(TheContext,8), 0);
+    }
+    void printAST() const; 
+    bool isConstant() const{return false;}
+    bool isString() const{return true;}
+    
+    bool compare(QType const* ty) const{
+        if(ty->isString()) return true;
+        return false;
+    }
+};
+
 class IntType : public QType{
 private:
     bool isSigned;
@@ -214,6 +241,9 @@ public:
     bool isConstant() const{
         return false;
     }
+    bool isString() const{
+        return false;
+    }
     bool getIsPointer() const{
         return false;
     }
@@ -237,16 +267,22 @@ public:
 class PointType : public QType{
     QType* elementType;
     bool isnull;
-    StructType* stype;
+    StructType* stype = nullptr;
     void initStruct(){
-        stype = StructType::get(TheContext,{sizet, llvm::PointerType::get(elementType->getLLVMType(),0)});
+
+        if(doCheck[CheckLevel::check_array_bound] || doCheck[CheckLevel::check_free])
+            stype = StructType::get(TheContext,{sizet, llvm::PointerType::get(elementType->getLLVMType(),0)});
+        /*else if(doCheck[CheckLevel::check_free]){
+            printf(";header \n");
+            stype = StructType::get(TheContext,{llvm::PointerType::get(elementType->getLLVMType(),0)});
+        }*/
+
     }
 public:
     PointType(QType* elementType1,bool isn = false) : QType(true){
         elementType = elementType1;
         isnull = isn;
-        if(doCheck)
-            initStruct();
+        initStruct();
     }
 
     QType* const getElementType() const{
@@ -259,7 +295,7 @@ public:
 
     llvm::PointerType* getLLVMType() const{
         
-        if(doCheck)
+        if(stype != nullptr)
             return llvm::PointerType::get(stype,0);  
         else
             return llvm::PointerType::get(elementType->getLLVMType(),0); 
@@ -288,20 +324,15 @@ public:
     bool isConstant() const{
         return false;
     }
+    bool isString() const{
+        return false;
+    }
     bool getIsPointer() const{
         return true;
     }
 
 };
 
-
-
-
-/*
-  Arbitrary precision signed integer type
-
-  TODO: Move to own file
-*/
 
 //The reason why I need the type is becasue,like in the cast:
 //uint8 u2 = 9     uint8 u1 = 3 + 8 - u2
@@ -313,8 +344,8 @@ private:
     IntConst value;
 
 public:
-    ConstantType(std::string v) : QType(false), value(v) { }
-    ConstantType(IntConst v) : QType(false), value(v) {
+    ConstantType(std::string v, int line) : QType(false), value(v,line) { }
+    ConstantType(IntConst v, int line) : QType(false), value(v) {
     }
     IntConst getValue() const {
         return value;
@@ -327,6 +358,9 @@ public:
     }
     bool isConstant() const{
         return true;
+    }
+    bool isString() const{
+        return false;
     }
     bool getIsPointer() const{
         return false;

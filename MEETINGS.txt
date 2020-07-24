@@ -21,6 +21,7 @@ TODO:
 
   string type, string literals
 
+  some error message do not have line number(because the error() of parser)
 
   meaningful tests, ideally:
     * can be benchmarked against real-world impls
@@ -28,7 +29,7 @@ TODO:
 
   ideas:
     sorting algorithm, e.g.
-      heapsort -> has impl in GNU libstdc++ (std::make_heap, std::sort_heap)
+      heapsort -> has impl in GNU libstdc++  (std::make_heap, std::sort_heap)
       introsort -> has impl in GNU libstdc++ (std::sort)
       mergesort -> has impl in GNU libstdc++ (std:stable_sort)
 

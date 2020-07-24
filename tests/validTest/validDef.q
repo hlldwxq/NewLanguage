@@ -81,7 +81,8 @@ def uint64 PtrDefVar(uint64 a){
 
     uint64* arr
     arr = arr1
-    return arr[0]
+
+    return arr1[0]
 }
 
 def uint64 PtrDefNew(uint64 a){

@@ -3,32 +3,46 @@
 #include "../header/ASTCommand.h"
 #include "../header/Scope.h"
 
-
 void FreeAST::codegenCommand(){
     QValue* p = ptr->codegen();
     if(!p->getType()->getIsPointer()){
         lerror("what will be freed must be a pointer");
     }
-    if(doCheck){
+    if(doCheck[CheckLevel::check_free]){
+        
+        Value* arrayAddPtr;
+
         Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
         Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
+        arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
 
-        Value* arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
+        /*if( doCheck[CheckLevel::check_array_bound]){
+
+            Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
+            Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
+            arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
+
+        }else{
+            arrayAddPtr = Builder.CreateStructGEP(p->getValue(),0);
+        }*/
+
         Value* array = Builder.CreateLoad(arrayAddPtr);
         //free
         Instruction* var_free = CallInst::CreateFree(array,Builder.GetInsertBlock());
         Builder.Insert(var_free);
+
         //store null
         Value* nullValue = Constant::getNullValue(array->getType());
         Builder.CreateStore(nullValue,arrayAddPtr);
-    }else{
+    }
+    else{
         Instruction* var_free = CallInst::CreateFree(p->getValue(),Builder.GetInsertBlock());
         Builder.Insert(var_free);
     }
 }
 
 void DefAST::codegenCommand(){
-    
+
     llvm::AllocaInst* Alloca = Builder.CreateAlloca(type->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
 
     QValue* init = value->codegen();
@@ -44,12 +58,13 @@ void DefAST::codegenCommand(){
     }
 
     Value* initV = init->getValue();
+
     Builder.CreateStore(initV, allo->getAlloca());
 
 }
 
 void AssignAST::codegenCommand(){
-    
+
     QValue* rightV = right->codegen();
     const QAlloca* leftV = left->codegenLeft();
 
@@ -59,11 +74,13 @@ void AssignAST::codegenCommand(){
     }
 
     llvm::Value* rightValue = rightV->getValue();
+
     llvm::Value* store = Builder.CreateStore(rightValue, leftV->getAlloca());
 
     if(!store){
         Bug("failed store",0);
     }
+
 }
 
 void ReturnAST::codegenCommand(){
@@ -130,15 +147,11 @@ void IfAST::codegenCommand(){
         Builder.CreateBr(MergeBB);
     }
 
-// 	ThenBB = Builder.GetInsertBlock();  // Codegen of 'Then' can change the current block.
-
 	Builder.SetInsertPoint(ElseBB);
 	elseC->codegenCommand();
     if(!elseC->isRet() && !elseC->isBreak() && MergeBB!=NULL) {
         Builder.CreateBr(MergeBB);
     }
-
-// 	ElseBB = Builder.GetInsertBlock();
 
 	// merge
     if(MergeBB){
@@ -180,14 +193,10 @@ void ForAST::codegenCommand(){
     }
 	Builder.CreateCondBr(Cond->getValue(), BodyBB, AfterBB);
 
-// 	ConBB = Builder.GetInsertBlock();
-
 	// Emit body block.
 	Builder.SetInsertPoint(BodyBB);
 
 	body->codegenCommand();
-
-// 	BodyBB = Builder.GetInsertBlock();
 
 	// Emit the step value.
     const QAlloca* startAlloca = scope.findSymbol(start->getName());
@@ -237,19 +246,15 @@ void WhileAST::codegenCommand(){
     }
 	Builder.CreateCondBr(Cond->getValue(), BodyBB, AfterBB);
 
-// 	ConBB = Builder.GetInsertBlock();
 
 	// Emit body block.
-    //	TheFunction->getBasicBlockList().push_back(BodyBB);
 	Builder.SetInsertPoint(BodyBB);
 
 	body->codegenCommand();
 
-// 	BodyBB = Builder.GetInsertBlock();
 	Builder.CreateBr(ConBB);
 
 	// Emit after block.
-    //	TheFunction->getBasicBlockList().push_back(AfterBB);
 	Builder.SetInsertPoint(AfterBB);
     scope.setBreakBB(NULL);
 }

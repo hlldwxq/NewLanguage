@@ -36,6 +36,18 @@ std::unique_ptr<NumberExprAST> Parser::ParseNumberExpr(){
 	return num;
 }
 
+/// stringExpr :: " str "
+std::unique_ptr<StringExprAST> Parser::ParseStringExpr(){
+    
+    int line1 = lineN;
+    if(CurTok != Token::tok_string)
+        Bug("call ParseStringExpr, except string ",lineN);
+    
+    std::unique_ptr<StringExprAST> str = std::make_unique<StringExprAST>(Str,line1);
+    getNextToken();
+    return str;
+}
+
 /// callExpr ::= fName(expression1,expression2, ..)
 std::unique_ptr<CallExprAST> Parser::ParseCallExpr(std::string functionName){
     int line1 = lineN;
@@ -57,8 +69,6 @@ std::unique_ptr<CallExprAST> Parser::ParseCallExpr(std::string functionName){
         if(CurTok != Token::comma){
             if(CurTok != Token::right_paren){
                 error("expect ) at line: "+std::to_string(lineN));
-               // ErrorQ("expect ) in function call", lineN);
-               // return nullptr;
             }
         }else{
             getNextToken();  //eat ,
@@ -86,8 +96,6 @@ std::unique_ptr<ArrayIndexExprAST> Parser::ParseArrayIndexExpr(std::unique_ptr<E
 
         if(CurTok != Token::right_square_bracket ){
             error("expect ] at line: "+std::to_string(lineN));
-           // ErrorQ("except ] in array index", lineN);
-           // return nullptr;
         }
         getNextToken(); //eat ]
 
@@ -149,8 +157,7 @@ std::unique_ptr<ExprAST> Parser::ParseUnary(){
             break;
         default:
             error("unvalid unary operator at line: "+std::to_string(lineN));
-           // ErrorQ("unvalid unary operator",lineN);
-           // return nullptr;
+            
     }
 	getNextToken();  //eat op
     
@@ -226,8 +233,6 @@ std::unique_ptr<ExprAST> Parser::ParseBinOpRHS(int TokPrec, std::unique_ptr<Expr
                 break;
             default:
                 error("unvalid symbol for binary operator at line: "+std::to_string(lineN));
-               // ErrorQ(,lineN);
-               // return nullptr;
         }
 		getNextToken(); // eat binop
 
@@ -300,8 +305,6 @@ std::unique_ptr<ExprAST> Parser::ParseParen(){
 
     if(CurTok!=Token::right_paren){
         error("expect ) at line: "+std::to_string(lineN));
-       // ErrorQ("expect )",lineN);
-       // return nullptr;
     }
     getNextToken(); // eat )
 
@@ -311,6 +314,9 @@ std::unique_ptr<ExprAST> Parser::ParseParen(){
 std::unique_ptr<ExprAST> Parser::ParseBinaryExpr(){
     std::unique_ptr<ExprAST> Expr;
     switch(CurTok){
+    case Token::tok_string:
+        Expr = ParseStringExpr();
+        break; 
     case Token::tok_number:
         Expr = ParseNumberExpr();
         break;
@@ -340,8 +346,6 @@ std::unique_ptr<ExprAST> Parser::ParseBinaryExpr(){
         break;
     default:
         error("unexpected word for an expression at line: "+std::to_string(lineN));
-       // ErrorQ("unexpected word for an expression",lineN);
-       // return nullptr;
     }
     if(CurTok == Token::left_square_bracket){
         Expr = ParseArrayIndexExpr(std::move(Expr));

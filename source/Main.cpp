@@ -3,16 +3,22 @@
 
 int main(int argc, char **argv){
 
-    if (argc != 3) {
-      std::cerr<<"Usage llvmir DyCheck <filename> or Usage llvmir notDyCheck <filename>"<<std::endl;
+    if (argc < 3) {
+      std::cerr<<"Usage [CheckLevelFlag]+ <filename>"<<std::endl;
+      std::cerr<<"CheckLevelFlag: DyCheck | notDyCheck | check_arith | check_free | check_array_bound"<<std::endl;
       exit(1);
     }
 
     try {
-      std::string doCheck = argv[1]; // DyCheck notDyCheck
-      initCheck(doCheck);
 
-      std::string fileName = argv[2];  // "validCode.q";
+      int commandCount = 1;
+      while(argv[commandCount+1]!=NULL){
+        initCheck(argv[commandCount++]);
+      }
+      // isCheckLevelValid();
+
+      // if no command, it means they do not need dynamic check
+      std::string fileName = argv[commandCount];  // "validCode.q";
       std::ifstream in(fileName);
       std::ostringstream tmp;
       tmp.str("");

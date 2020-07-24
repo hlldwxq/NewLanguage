@@ -8,33 +8,46 @@ array newarray(uint64_t);
 void setarray(array,uint64_t,uint64_t);
 uint64_t getarray(array,uint64_t);
 
-void quicksort_aux(array,uint64_t,uint64_t);
+void sort(array, uint64_t, uint64_t);
+void quicksort_aux(array, uint64_t, uint64_t);
+void final_insertion_sort(array, uint64_t, uint64_t);
 
 void prl() {printf ("\n");}
 void pr(uint64_t x) {
   printf("%ld ",x);
 }
-
-int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
-  srand(0);
-  size_t n=2;
-  array a = newarray(n);
-  for (size_t i=0;i<n;++i) setarray(a,i,rand());
-
-  quicksort_aux(a,0,n);
-
-  for (size_t i=0;i<n-1;++i) {
-    if (getarray(a,i) > getarray(a,i+1)) {
-      printf("Not sorted\n");
-      return 1;
-    }
-  }
-
-//   for (size_t i=0;i<n;++i) printf("%ld ",getarray(a,i));
-//   printf("\n");
-
-  printf("Success!\n");
-  return 0;
+void prs(char* x) {
+  printf("%s ",x);
 }
 
+int check(int n){
+  srand(0);
+  array a = newarray(n);
+  for (size_t i=0;i<n;++i) 
+    setarray(a,i,rand()%n);
 
+  sort(a,0,n);
+  for (size_t i=0;i<n-1;++i) {
+    if (getarray(a,i) > getarray(a,i+1)) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
+  int failed = 0;
+  
+  if(check(2)==0){ failed++; printf("introsort failed\n"); }
+  if(check(20)==0){ failed++; printf("introsort failed\n"); }
+  if(check(20)==0){ failed++; printf("introsort failed\n"); }
+  if(check(50)==0){ failed++; printf("introsort failed\n"); }
+  if(check(50)==0){ failed++; printf("introsort failed\n"); }
+  if(check(100)==0){ failed++; printf("introsort failed\n"); }
+  if(check(100)==0){ failed++; printf("introsort failed\n"); }
+
+  if(failed == 0){
+    printf("Success!\n");
+  }
+  return 0;
+}
