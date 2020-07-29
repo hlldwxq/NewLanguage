@@ -54,7 +54,6 @@ void FunctionAST::codegenStructure(){
     for(auto &Arg : function->args()){
         std::string name = args[i].first;
         QType* t = args[i].second;
-
         llvm::AllocaInst* Alloca = Builder.CreateAlloca(t->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
 
         QAlloca* allo = new QAlloca(t, Alloca);
@@ -64,6 +63,9 @@ void FunctionAST::codegenStructure(){
         }
 
         Builder.CreateStore(&Arg, Alloca);
+       /*  if(!scope.addArg(name,new QValue(t,&Arg))){
+            error("the identifier has been declared at line: "+std::to_string(line));
+        }*/
         i++;
     }
 
@@ -101,6 +103,7 @@ GlobalVariable* DefAST::globalInit(){
     if(!scope.addGlobalVar(name,new QGlobalVariable(type,globalV))){
         CommandAST::lerror("the gloabal variable has been declared");
     }
+
     return globalV;
 }
 
@@ -114,6 +117,7 @@ void createFunction(llvm::Value* rightV, GlobalVariable* globalV, Function* F){
 void VarDefAST::codegenStructure(){
 
     GlobalVariable* globalV = globalInit();
+
     assert(globalV);
 
     QValue* qvalue = value->codegen();
@@ -131,6 +135,7 @@ void VarDefAST::codegenStructure(){
         createFunction(rightV, globalV, F);
         
     }
+
 }
 
 void ArrayDefAST::codegenStructure(){
@@ -158,12 +163,11 @@ void StrDefAST::codegenStructure(){
         CommandAST::lerror("The value of global string must be string literal");
     }
     GlobalVariable * globalV = globalInit();
-   
     Function* F = globalInitFunc();
     QValue* qvalue = value->codegen();
+
     qvalue = assignCast(qvalue,type);
     llvm::Value* rightV = qvalue->getValue();
-
     createFunction(rightV, globalV, F);
-   
+
 }

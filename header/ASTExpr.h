@@ -8,7 +8,7 @@ public:
     LeftValueAST(ASTType type, int l):ExprAST(type,l){}
     virtual ~LeftValueAST(){}
     virtual void printAST(int level=0){}
-    virtual QValue* codegen(); //{ return NULL; }
+    virtual QValue* codegen()=0; //{ return NULL; }
     virtual const QAlloca* codegenLeft()=0;
 };
 
@@ -23,10 +23,10 @@ public:
         isPointer = isP;
 	}
 	std::string getName() { return name; }
+    const QAlloca* codegenLeft();
+    QValue* codegen();
 
     void printAST(int level=0);
-
-    const QAlloca* codegenLeft();
 };
 
 // arrayIndex
@@ -41,6 +41,7 @@ public:
         index = std::move(index1);
     }
     const QAlloca* codegenLeft();
+    QValue* codegen();
 
     void printAST(int level=0);
 };

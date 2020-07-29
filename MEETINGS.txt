@@ -1,7 +1,6 @@
 # July 24
 
 Qiao implemented flags, completed introsort, heapsort, strings
-
 together: tried parallel tests, fixed introsort, benchmark introsort against std::sort
 
 TODO

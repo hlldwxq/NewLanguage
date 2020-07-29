@@ -11,7 +11,7 @@ std::unique_ptr<Module> TheModule;
 std::unique_ptr<TargetMachine> TM;
 bool* doCheck = NULL;
 llvm::Type* sizet;
-Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
+Scope<QAlloca,QFunction,QGlobalVariable,ReturnType,QValue> scope;
 
 std::map<int,std::string> maxIntSignedValue;
 std::map<int,std::string> minIntSignedValue;
@@ -411,8 +411,13 @@ void callError(std::string info, int line){
     std::string str = info + " at line: %d\n";
     Constant *lineN = ConstantInt::get(sizet, line);
 
-    const char *str_ptr = str.c_str();
-    Value *globalStrPtr = Builder.CreateGlobalStringPtr(str_ptr);
+   // const char *str_ptr = str.c_str();
+    Value *globalStrPtr = scope.findStr(str);
+    if(globalStrPtr==NULL){
+        globalStrPtr = Builder.CreateGlobalStringPtr(str);
+        scope.addStr(str,globalStrPtr);
+    }
+
     std::vector<Value*> ArgsV;
     ArgsV.push_back(globalStrPtr);
     ArgsV.push_back(lineN);

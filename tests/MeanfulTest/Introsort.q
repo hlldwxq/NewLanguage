@@ -64,16 +64,46 @@ def void move_cut( uint64* a, uint64 cut){
 
 
 def void unguarded_linear_insert(uint64* arr, uint64 last){
+  prs("t1")
+  prl()
+  
   uint64 val = arr[last]
+  
+  prs("t2")
+  prl()
+  
   uint64 next = last - 1
+  
+  prs("t3")
+  prl()
 
   while (val < arr[next] ) {
+    prs("t4")
+    prl()
+
     arr[last] = arr[next]
+
+    prs("t5")
+    prl()
+
     last = next 
+
+    prs("t6")
+    prl()
+
     next = next - 1
+
+    prs("t7")
+    prl()
   }
 
+  prs("t8")
+  prl()
+
   arr[last] = val
+
+  prs("t9")
+  prl()
 }
 
 def void moveToFirst(uint64* arr, uint64 first, uint64 i){
@@ -87,19 +117,36 @@ def void moveToFirst(uint64* arr, uint64 first, uint64 i){
 }
 
 def void insertion_sort(uint64* arr, uint64 first, uint64 last) {      
-  
+  prs("11111")
+  prl()
   if (first == last) 
   then  return void       
   
+  prs("22222")
+  prl()
+
   for uint64 i = first + 1, i != last, 1	{	  
     if ( arr[i] < arr[first] ) 
-    then {	     
-      uint64 val = arr[i]	    
-      moveToFirst( arr, first, i)	      
-      arr[first] = val	    
+    then {	  
+      prs("33333")
+      prl()   
+      uint64 val = arr[i]
+      prs("44444")
+      prl()	    
+      moveToFirst( arr, first, i)	 
+      prs("55555")
+      prl()     
+      arr[first] = val	 
+      prs("66666")
+      prl()   
     }	  
-    else	   
+    else{	   
+      prs("77777")
+      prl()
       unguarded_linear_insert(arr, i)
+      prs("88888")
+      prl()
+    }
   }    
 }
 
@@ -112,11 +159,22 @@ def void final_insertion_sort(uint64* arr, uint64 first, uint64 last) {
   
   if (last-first > threshold)	
   then {	  
-    insertion_sort(arr, first, first+threshold)	  
+    prs("test1")
+    prl()
+    insertion_sort(arr, first, first+threshold)	 
+    prs("test2")
+    prl() 
     unguarded_insertion_sort(arr, first+threshold, last)	
+    prs("test3")
+    prl()
   }     
-  else	
+  else{	
+    prs("test11")
+    prl()
     insertion_sort(arr, first, last)  
+    prs("test12")
+    prl()
+  }
 }
 
 
@@ -134,8 +192,14 @@ def void quicksort_aux( uint64* a, uint64 l, uint64 h) {
 def void sort(uint64* arr, uint64 first, uint64 last){
   if first != last
   then {
+    prs("1")
+    prl()
     quicksort_aux(arr, first, last)
+    prs("2")
+    prl()
     final_insertion_sort(arr, first, last)
+    prs("3")
+    prl()
   }
 }
 

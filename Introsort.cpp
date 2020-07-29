@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <chrono>
 
+void prs(char* s){
+  printf("%s",s);
+}
+void prl(){
+  printf("\n");
+}
 extern "C" {
   typedef struct {void * p;} *array;
 
@@ -41,6 +47,7 @@ dur q_sort(array a, int n) {
 }
 
 void q_check(int n) {
+
   auto a = q_mk_array(n);
   auto t = q_sort(a,n);
   q_check_sorted(a,n);
@@ -96,16 +103,6 @@ int main(int argc, char **argv) {
       return 1;
     }
   }
-
-//   check(0);
-//   check(1);
-//   check(2);
-//   check(20);
-//   check(20);
-//   check(50);
-//   check(50);
-//   check(100);
-//   check(100);
 
   printf("Success!\n");
   return 0;

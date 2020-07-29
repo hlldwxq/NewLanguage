@@ -51,6 +51,7 @@ def void mergeSort(uint64* arr, uint64 left, uint64 right, uint64* temp) {
 def void sort_merge(uint64* arr, uint64 left, uint64 right){
     uint64* temp = new uint64[right - left]
     mergeSort(arr, left, right-1, temp)
+    free temp
 }
 
 def uint64 *newarray(uint64 n) { return new uint64[n] }

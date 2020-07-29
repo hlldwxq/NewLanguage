@@ -51,7 +51,7 @@ int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) 
 //   check(20);
 //   check(50);
 //   check(50);
-//   check(100);
+   check(100);
 //   check(100);
 
   printf("Success!\n");

@@ -6,8 +6,6 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
     
     if(CurTok != Token::tok_def){
         error("expect def at line: "+std::to_string(lineN));
-        //ErrorQ("except def",lineN);
-        //return nullptr;
     }
 
     getNextToken();  //eat def

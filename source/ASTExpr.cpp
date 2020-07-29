@@ -1,17 +1,39 @@
 #include "../header/AST.h"
 #include "../header/ASTExpr.h"
 
+bool checkUnignedNum(QValue* value){
+    
+    QType* type = value->getType();
+    if(type->getIsPointer() ||type->isString()){
+        return false;
+    }
+
+    if(type->isConstant()){
+        ConstantType* ctype = dynamic_cast<ConstantType*>(type);
+        return !(ctype->isNegative());
+    }else{
+        IntType* itype = dynamic_cast<IntType*>(type);
+        return !(itype->getSigned());
+    }
+} 
+
 const QAlloca* VariableAST::codegenLeft(){
 
     const QAlloca* Alloca = scope.findSymbol(name);
     if(!Alloca){
-        const QGlobalVariable* global = scope.findGlobalVar(name);
-        if(!global){
-            lerror("the variable has not been declared");
-        }
+        //const QValue* arg = scope.findArg(name);
+        //if(!arg){
+            const QGlobalVariable* global = scope.findGlobalVar(name);
+            if(!global){
+                lerror("the variable has not been declared");
+            }
+            Alloca = new QAlloca(global->getType(),global->getGlobalVariable());
+        //}
 
-        Alloca = new QAlloca(global->getType(),global->getGlobalVariable());
-
+        /*llvm::AllocaInst* All = Builder.CreateAlloca(arg->getType()->getLLVMType(), ConstantInt::get(Type::getInt32Ty(TheContext), 1), name);
+        Alloca = new QAlloca(arg->getType(), All);
+        scope.addArg(name,Alloca);
+        Builder.CreateStore(arg->getValue(), All);*/
     }
 
     return Alloca;
@@ -22,9 +44,7 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     QValue* left = pointer->codegen();
     QValue* arrI = index->codegen();
 
-    IntType* arraySizeType = new IntType(false,128); //if the size fix uint128
-    arrI = assignCast(arrI,arraySizeType);
-    if(!arrI){
+    if(!checkUnignedNum(arrI)){
         lerror("the array index must be unsigned number");
     }
 
@@ -43,14 +63,9 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
     if( doCheck[CheckLevel::check_free]){
         // check free
         arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
-        /*if( doCheck[CheckLevel::check_array_bound]){ 
-            arrayAddress = Builder.CreateStructGEP(left->getValue(),1);
-        }else{
-            //arrayAddress = Builder.CreateStructGEP(left->getValue(),0);
-        }*/
         arrayAddress = Builder.CreateLoad(arrayAddress);
         Value* isNULL = Builder.CreateIsNull(arrayAddress);
-        isNULL = Builder.CreateICmpEQ(isNULL, ConstantInt::get(isNULL->getType(),1,false));
+        //isNULL = Builder.CreateICmpEQ(isNULL, ConstantInt::get(isNULL->getType(),1,false));
 
         createBr("the array has been free",isNULL,line, "hasFree", "noFree");
     }
@@ -78,12 +93,14 @@ const QAlloca* ArrayIndexExprAST::codegenLeft(){
  
 }
 
-QValue* LeftValueAST::codegen() {
+QValue* VariableAST::codegen() {
 
     const QAlloca* Alloca = codegenLeft();
-    if(!Alloca){
-        return NULL;
-    }
+    return new QValue(Alloca->getType(),Builder.CreateLoad(Alloca->getAlloca()));
+}
+
+QValue* ArrayIndexExprAST::codegen(){
+    const QAlloca* Alloca = codegenLeft();
     return new QValue(Alloca->getType(),Builder.CreateLoad(Alloca->getAlloca()));
 }
 
@@ -94,7 +111,11 @@ QValue* NumberExprAST::codegen(){
 }
 
 QValue* StringExprAST::codegen(){
-    Value* stringExpr = Builder.CreateGlobalStringPtr(str);
+    Value* stringExpr = scope.findStr(str);
+    if(stringExpr == NULL){
+        stringExpr = Builder.CreateGlobalStringPtr(str);
+        scope.addStr(str,stringExpr);
+    }
     return new QValue(new StringType(), stringExpr);
 }
 
@@ -210,9 +231,7 @@ QValue* NewExprAST::codegen(){
     QValue* sizeValue = size->codegen();
 
     // sizecheck size >= 0
-    IntType* arraySizeType = new IntType(false,128); //if the size fix uint128
-    sizeValue = assignCast(sizeValue,arraySizeType);
-    if(!sizeValue){
+    if(!checkUnignedNum(sizeValue)){
         lerror("the size of array must be unsigned number");
     }
  
@@ -252,23 +271,6 @@ QValue* NewExprAST::codegen(){
 
         Value* arrayAddress = Builder.CreateStructGEP(result,1);
         Builder.CreateStore(malloc_value,arrayAddress);
-
-        /*if(doCheck[CheckLevel::check_array_bound] || doCheck[CheckLevel::check_free]){
-            // assign
-            
-            Value* sizeAddress = Builder.CreateStructGEP(result,0);
-            Builder.CreateStore(arraySize,sizeAddress);
-
-            Value* arrayAddress = Builder.CreateStructGEP(result,1);
-            Builder.CreateStore(malloc_value,arrayAddress);
-
-        }
-        else {
-            // assign
-            
-            Value* arrayAddress = Builder.CreateStructGEP(result,0);
-            Builder.CreateStore(malloc_value,arrayAddress);
-        }*/
 
         return new QValue(type,result); 
     }else{

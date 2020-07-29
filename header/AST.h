@@ -272,10 +272,6 @@ class PointType : public QType{
 
         if(doCheck[CheckLevel::check_array_bound] || doCheck[CheckLevel::check_free])
             stype = StructType::get(TheContext,{sizet, llvm::PointerType::get(elementType->getLLVMType(),0)});
-        /*else if(doCheck[CheckLevel::check_free]){
-            printf(";header \n");
-            stype = StructType::get(TheContext,{llvm::PointerType::get(elementType->getLLVMType(),0)});
-        }*/
 
     }
 public:
@@ -522,7 +518,7 @@ public:
 };
 
 
-extern Scope<QAlloca,QFunction,QGlobalVariable,ReturnType> scope;
+extern Scope<QAlloca,QFunction,QGlobalVariable,ReturnType,QValue> scope;
 QValue* assignCast(QValue* varValue, QType* leftT);
 QValue* constAdjustSign(QValue* num, bool isSigned);
 QValue* upCast(QValue* qv, IntType* type);

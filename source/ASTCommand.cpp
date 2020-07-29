@@ -4,6 +4,7 @@
 #include "../header/Scope.h"
 
 void FreeAST::codegenCommand(){
+
     QValue* p = ptr->codegen();
     if(!p->getType()->getIsPointer()){
         lerror("what will be freed must be a pointer");
@@ -15,16 +16,6 @@ void FreeAST::codegenCommand(){
         Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
         Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
         arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
-
-        /*if( doCheck[CheckLevel::check_array_bound]){
-
-            Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
-            Builder.CreateStore(ConstantInt::get(sizet,0,true),arraySize);
-            arrayAddPtr = Builder.CreateStructGEP(p->getValue(),1);
-
-        }else{
-            arrayAddPtr = Builder.CreateStructGEP(p->getValue(),0);
-        }*/
 
         Value* array = Builder.CreateLoad(arrayAddPtr);
         //free
@@ -39,6 +30,7 @@ void FreeAST::codegenCommand(){
         Instruction* var_free = CallInst::CreateFree(p->getValue(),Builder.GetInsertBlock());
         Builder.Insert(var_free);
     }
+
 }
 
 void DefAST::codegenCommand(){
@@ -113,6 +105,7 @@ void BlockAST::codegenCommand(){
     }
     
     scope.removeScope();
+
 }
 
 void CallExprAST::codegenCommand(){
@@ -120,7 +113,6 @@ void CallExprAST::codegenCommand(){
 }
 
 void IfAST::codegenCommand(){
-
     bool needAfterBr = !(isRet() || isBreak() || isRetOrBreak());
 
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
@@ -157,10 +149,10 @@ void IfAST::codegenCommand(){
     if(MergeBB){
         Builder.SetInsertPoint(MergeBB);
     }
+
 }
 
 void ForAST::codegenCommand(){
-
 
     if(isRet()||isBreak())
         lerror("the command in for loop cannot be total return or break");
@@ -223,7 +215,7 @@ void ForAST::codegenCommand(){
 }
 
 void WhileAST::codegenCommand(){
-    
+
     if(isRet()||isBreak())
         lerror("the command in for loop cannot be total return or break");
     
@@ -257,6 +249,7 @@ void WhileAST::codegenCommand(){
 	// Emit after block.
 	Builder.SetInsertPoint(AfterBB);
     scope.setBreakBB(NULL);
+
 }
 
 void BreakAST::codegenCommand(){
@@ -266,6 +259,5 @@ void BreakAST::codegenCommand(){
         lerror("the break command must be in while or for loop");
 
     Builder.CreateBr(breakBB);
-
 }
 
