@@ -6,7 +6,6 @@ CFGNAME=$1
 shift
 FLAGS="$@"
 
-
 LLVMIR=./llvmir
 LLVMAS=llvm-as-10
 CLANG=clang-10
@@ -68,9 +67,6 @@ function do_test() {
   check_success
 }
 
-# echo "NAME: $CFGNAME, FLAGS: $FLAGS"
-
-
-for i in tests/validTest/*.q; do
+for i in tests/MeanfulTest/*.q; do
   do_test $i
 done

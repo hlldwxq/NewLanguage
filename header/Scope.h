@@ -56,35 +56,6 @@ public:
         return NULL;
     }
 
-    /*void cleanArg(){
-        argTable.clear();
-    }
-
-    bool addArg(std::string name , T4* value){
-        
-        if(argTable.find(name) != argTable.end()){
-            return false; //cannot get the line number, thus ask codegen to emit error info
-        }
-
-        argTable[name] = value;
-        return true;
-    }
-
-    bool addArg(std::string name , const T* all){
-        
-        std::map<std::string,const T*> &scope = symbolTable.front();
-        scope[name] = all;
-        return true;
-    }
-
-    T4* findArg(std::string name){
-        typename std::map<std::string,T4*>::iterator iter = argTable.find(name);
-        if(iter != argTable.end()){
-            return iter->second;
-        }
-        return NULL;
-    }*/
-
     bool addSymbol(std::string name , T* Alloca){
         if(symbolTable.size()==0) {printf("no scope"); exit(1);}
 
@@ -142,7 +113,6 @@ public:
         }
         return true;
     }
-
 
     bool addGlobalVar(std::string name, T2* gv){
         

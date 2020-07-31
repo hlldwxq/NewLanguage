@@ -1,59 +1,19 @@
 #!/bin/bash
-FAILED=false
-function fail() {
-  echo "ERROR $FILE: $1"
-#   echo "Log in $LOG"
-  FAILED=true
-}
 
-function do_test() {
-  FILE=$1
-  LOG="$FILE.log"
-  dos2unix $FILE 2>/dev/null  # if ther is problem because of different OS, use this command
+set -e  # Terminate on errors
 
-  echo -n "Testing $1, $CFGNAME: "
-  REGEXP="$(grep '^ *# EXPECT ' $FILE | sed -re 's/^ *# EXPECT //')"
+./tests/invalidTest/__run_test.sh dy DyCheck &
+./tests/invalidTest/__run_test.sh ndy notDyCheck &
 
-  if test ! "$REGEXP"; then fail "No # EXPECT in $FILE"; return; fi
+./tests/invalidTest/__run_test.sh arith check_arith &
+./tests/invalidTest/__run_test.sh array check_array_bound &
+./tests/invalidTest/__run_test.sh free check_free &
 
-  ./llvmir $FLAGS "$FILE">"$LOG" 2>&1 && fail "Compilation did succeed unexpectedly"
+./tests/invalidTest/__run_test.sh arith_array check_arith check_array_bound &
+./tests/invalidTest/__run_test.sh free_array check_free	check_array_bound &
+./tests/invalidTest/__run_test.sh free_arith check_free	check_arith &
 
-  grep -q "$REGEXP" "$LOG" || fail "unexpected exception"
+./tests/invalidTest/__run_test.sh arith_array_free check_arith check_free	check_array_bound &
 
-  echo "Success!"
-}
+wait
 
-function do_tests() {
-  if [ $# -eq 2 ];
-  then
-      FLAGS=$1
-      echo "$FLAGS"
-      CFGNAME=$2
-  elif [ $# -eq 3 ];
-  then
-      FLAGS="$1 $2"
-      CFGNAME=$3
-  else
-      FLAGS="$1 $2 $3"
-      CFGNAME=$4
-  fi
-
-  for i in tests/invalidTest/typeConvert/*.q; do do_test "$i"; done
-  for i in tests/invalidTest/other/*.q; do do_test "$i"; done
-
-  if $FAILED; then exit 1; fi
-}
-
-
-do_tests DyCheck dy
-do_tests notDyCheck ndy
-
-do_tests check_arith arith
-do_tests check_array_bound array
-do_tests check_free free
-
-do_tests check_arith check_array_bound arith_array
-do_tests check_free	check_array_bound free_array
-do_tests check_free	check_arith free_arith
-
-do_tests check_arith check_free	check_array_bound arith_array_free

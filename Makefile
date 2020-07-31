@@ -32,13 +32,23 @@ cleanTest:
 	rm -rf $(DIR_TEST)/validTest/out/*
 	rm -rf $(DIR_TEST)/MeanfulTest/out/*
 	rm -rf $(DIR_TEST)/dynamicCheck/out/*
-	rm -rf $(DIR_TEST)/invalidTest/*.log
+	rm -rf $(DIR_TEST)/betchmark/out/*
+	rm -rf $(DIR_TEST)/invalidTest/other/*.log
+	rm -rf $(DIR_TEST)/invalidTest/typeConvert/*.log
+
+
+
+B_Q = $(wildcard $(DIR_TEST)/betchmark/*.q)
+B_CPP = $(patsubst %.q, %.cpp, $(B_Q))
+betchmark: llvmir $(B_Q) $(B_CPP) $(DIR_TEST)/betchmark/betchmark.sh
+	$(DIR_TEST)/betchmark/betchmark.sh
+
 
 
 
 Q = $(wildcard $(DIR_TEST)/dynamicCheck/*.q)
 C = $(patsubst %.q, %.c, $(Q))
-dynamicTest: llvmir $(O) $(C) $(DIR_TEST)/dynamicCheck/dynamicCheck.sh
+dynamicTest: llvmir $(Q) $(C) $(DIR_TEST)/dynamicCheck/dynamicCheck.sh
 	$(DIR_TEST)/dynamicCheck/dynamicCheck.sh
 
 

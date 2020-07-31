@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+
 LLVMIR=./llvmir
 LLVMAS=llvm-as-10
 CLANG=clang-10
@@ -65,20 +67,17 @@ function do_test() {
   check_expect_error
 }
 
-function do_tests() {
-  if [ $# -eq 2 ];
-  then
-      FLAGS=$1
-      CFGNAME=$2
-  elif [ $# -eq 3 ];
-  then
-      FLAGS="$1 $2"
-      CFGNAME=$3
-  else
-      FLAGS="$1 $2 $3"
-      CFGNAME=$4
-  fi
+function flag_afg(){
+  CFGNAME=$1
+  shift
+  FLAGS="$@"
+}
 
+function do_tests() {
+
+  CFGNAME=$1
+  shift
+  FLAGS="$@"
   for i in tests/dynamicCheck/*.q; do
     do_test $i
   done
@@ -86,19 +85,9 @@ function do_tests() {
 }
 
 function do_tests_free() {
-  if [ $# -eq 2 ];
-  then
-      FLAGS=$1
-      CFGNAME=$2
-  elif [ $# -eq 3 ];
-  then
-      FLAGS="$1 $2"
-      CFGNAME=$3
-  else
-      FLAGS="$1 $2 $3"
-      CFGNAME=$4
-  fi
-
+  CFGNAME=$1
+  shift
+  FLAGS="$@"
   for i in tests/dynamicCheck/freeCheck/*.q; do
     do_test $i
   done
@@ -106,18 +95,9 @@ function do_tests_free() {
 }
 
 function do_tests_arith() {
-  if [ $# -eq 2 ];
-  then
-      FLAGS=$1
-      CFGNAME=$2
-  elif [ $# -eq 3 ];
-  then
-      FLAGS="$1 $2"
-      CFGNAME=$3
-  else
-      FLAGS="$1 $2 $3"
-      CFGNAME=$4
-  fi
+  CFGNAME=$1
+  shift
+  FLAGS="$@"
 
   for i in tests/dynamicCheck/arith/*.q; do
     do_test $i
@@ -126,18 +106,9 @@ function do_tests_arith() {
 }
 
 function do_tests_array() {
-  if [ $# -eq 2 ];
-  then
-      FLAGS=$1
-      CFGNAME=$2
-  elif [ $# -eq 3 ];
-  then
-      FLAGS="$1 $2"
-      CFGNAME=$3
-  else
-      FLAGS="$1 $2 $3"
-      CFGNAME=$4
-  fi
+  CFGNAME=$1
+  shift
+  FLAGS="$@"
 
   for i in tests/dynamicCheck/arrayBound/*.q; do
     do_test $i
@@ -145,17 +116,18 @@ function do_tests_array() {
 
 }
 
-do_tests DyCheck dy
-do_tests check_arith check_free	check_array_bound arith_array_free
+ do_tests dy DyCheck &
+ do_tests arith_array_free check_arith check_free	check_array_bound  &
 
-do_tests_arith check_arith arith
-do_tests_arith check_arith check_array_bound arith_array
-do_tests_arith check_arith check_free arith_array
+ do_tests_arith arith check_arith  &
+ do_tests_arith arith_array check_arith check_array_bound  &
+ do_tests_arith arith_array check_arith check_free  &
 
-do_tests_array check_array_bound array
-do_tests_array check_arith check_array_bound arith_array
-do_tests_array check_free	check_array_bound free_array
+ do_tests_array array check_array_bound  &
+ do_tests_array arith_array check_arith check_array_bound  &
+ do_tests_array free_array check_free	check_array_bound  &
 
-do_tests_free check_free free
-do_tests_free check_free check_array_bound free_array
-do_tests_free check_free check_arith free_arith
+ do_tests_free free check_free  &
+ do_tests_free free_array check_free check_array_bound  &
+ do_tests_free free_arith check_free check_arith &
+ wait

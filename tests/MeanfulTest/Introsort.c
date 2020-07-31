@@ -41,7 +41,7 @@ void check(int n){
 int main(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
 
   
-  for (size_t i=0; i<10000000; i= i?i*2:1 ) check(i);
+  for (size_t i=0; i<10000000; i= i?i*10:1 ) check(i);
 
 
 //   check(0);
