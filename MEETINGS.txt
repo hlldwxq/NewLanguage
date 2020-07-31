@@ -1,3 +1,58 @@
+# July 31
+
+Thesis outline.
+  Abstract: short summary, 1 paragraph
+
+  ### Chapter Background and Theory
+  1. Introduction:
+    add: why is topic important.
+
+    Background:
+      also mention newer developments, e.g., Rust. They are designed to solve similar problems!
+      https://en.wikipedia.org/wiki/Rust_(programming_language)
+
+
+    Intro to languages: briefly discuss 'relevant' aspects of
+    Java, Rust, C. How do they tackle safety, platform indep?
+    What are the ADVANTAGES/DISADVANTAGES. (Neutral discussion, no opinion yet!)
+
+  ### Chapter The Q-Language and its Compiler
+  2. the feature and syntax of Q language
+    Language syntax and semantics
+    (Optional) dynamic checks. From user point of view.
+    What is checked, what guarantees are implied by these checks?
+      e.g. no undefined behavior, but defined abort.
+
+
+  3. Frontend
+    * general structure of compilers (e.g. parser, AST, codegen, backend) [use some compiler textbook and take their structuring!]
+    * your implementation of frontend. LL-grammar, rec-parser, symtab, AST
+
+  4. LLVM --> May go to Chapter Background
+    * used for backend
+    * general intro to LLVM
+
+  5. Backend
+    * description of your backend.
+    * how are checks implemented
+
+
+  ### Chapter Evaluation
+    6. Unit and Regression testing
+      * general intro: what is unit/regression testing --> May go to Chapter Background
+      * what did you do: Test framework for your compiler
+
+    7. Performance
+      * Sorting algorithms + other algos?, compare performance with C, Java (maybe Rust?)
+
+  ### Conclusions
+    * concl + achievements
+    * future work
+
+  Bibliography
+
+
+
 # July 24
 
 Qiao implemented flags, completed introsort, heapsort, strings
