@@ -1,5 +1,54 @@
 # July 31
 
+Qiao implemented benchmark suite with several std::algorithms.
+Duplicate string literals removal
+
+
+TODO:
+  * why is q-algo still slower, even without dyn-checks?
+    * inlining? Do not spend too much time on it!
+
+  * systematic benchmarks: compare runtimes with different combinations of flags, against C++
+    * make sure no background processes on computer while measuring
+    * DONE repeat experiment a few times, take median
+    * DONE automate via script!
+    * script should write to LOGFILE (use "tee" to write to screen and logfile)
+    * create nice diagram from logged data, ideally automatically such that adjustments can quickly be made
+
+  * Compare with Java? (Careful to compare SAME algorithms, e.g. java sorting uses some mergesort by default)
+
+  * DONE Benchmark introsort, heapsort (against C++ heapsort)
+
+
+
+  literature review on programming languages (important for final report):
+    How does this project relate to others? To design ideas for PLs?
+    What would be useful features to add at this point?
+    -> possible starting points:
+      textbook on PLs,
+      modern PL, e.g. Rust, Java, Go, ...
+
+  DECIDED AGAINST: print function
+    would make language self-contained enough for tests!
+    requires: string type
+    "easy" way: string = uint8*, and 'hardcode' printf with variable arguments (printf-command)
+      printf("foo %s %l", x,y)
+
+  ADVANCED: string literals: Operations on strings
+    * maybe as (constant) arrays?
+
+  ADVANCED: implement a larger program, ideally
+    * does something useful
+    * is safety critical
+    * has suffered form overflow problems in the past
+
+  ADVANCED: add more advanced features (?):
+    * struct type
+    * polymorphic types (templates) "vector<T>"
+
+
+
+
 Thesis outline.
   Abstract: short summary, 1 paragraph
 
@@ -59,22 +108,11 @@ Qiao implemented flags, completed introsort, heapsort, strings
 together: tried parallel tests, fixed introsort, benchmark introsort against std::sort
 
 TODO
-  * why is q-algo still slower, even without dyn-checks?
-    * inlining? Do not spend too much time on it!
 
-  * systematic benchmarks: compare runtimes with different combinations of flags, against C++
-    * make sure no background processes on computer while measuring
-    * repeat experiment a few times, take median
-    * automate via script!
-
-  * Benchmark introsort, heapsort (against C++ heapsort)
-
-  * Are there other interesting algorithms you want to implement?
-
-  * Compare with Java? (Careful to compare SAME algorithms, e.g. java sorting uses some mergesort by default)
+  * DONE Are there other interesting algorithms you want to implement?
 
   Thesis writing:
-    * start with outline: chapters, a few sentences for each chapter what it contains
+    * DONE start with outline: chapters, a few sentences for each chapter what it contains
 
 
 
@@ -101,13 +139,13 @@ TODO:
 
   DONE string type, string literals
 
-  some error message do not have line number(because the error() of parser)
+  DONE some error message do not have line number(because the error() of parser)
 
-  meaningful tests, ideally:
+  DONE meaningful tests, ideally:
     * can be benchmarked against real-world impls
     * use all relevant features: arith, array-access, memory-alloc/free
 
-  ideas:
+  DONE ideas:
     sorting algorithm, e.g.
       heapsort -> has impl in GNU libstdc++  (std::make_heap, std::sort_heap)
       introsort -> has impl in GNU libstdc++ (std::sort)
@@ -122,7 +160,7 @@ Together: replaced const-impl with strings by IntConst
 
 TODO:
   DONE debug IntConst and stuff (tests fail)
-  enable array-bounds and use-after-free based on flag/config option
+  DONE enable array-bounds and use-after-free based on flag/config option
 
 
 
@@ -158,30 +196,8 @@ TODOs:
     * array bounds checks (also optional)
 
 
-  ** At this point, we might have reached minimal viable product
+  ** DONE At this point, we might have reached minimal viable product
   ** What next?
-
-  literature review on programming languages (important for final report):
-    How does this project relate to others? To design ideas for PLs?
-    What would be useful features to add at this point?
-    -> possible starting points:
-      textbook on PLs,
-      modern PL, e.g. Rust, Java, Go, ...
-
-  print function
-    would make language self-contained enough for tests!
-    requires: string type
-    "easy" way: string = uint8*, and 'hardcode' printf with variable arguments (printf-command)
-      printf("foo %s %l", x,y)
-
-  implement a larger program, ideally
-    * does something useful
-    * is safety critical
-    * has suffered form overflow problems in the past
-
-  add more advanced features (?):
-    * struct type
-    * polymorphic types (templates) "vector<T>"
 
 
 

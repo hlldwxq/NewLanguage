@@ -92,11 +92,13 @@ void c_check(int n) {
 
 int main(int argc, char **argv) {
 
+  size_t n = 1000000;
+
   if (argc!=2)
-    for (size_t i=0; i<10000000; i= i?i*2:1 ) q_check(i);
+    for (size_t i=0; i<n; i= i?i*2:1 ) q_check(i);
   else {
-    if ((std::string)(argv[1]) == "cpp") c_check(100000);
-    else if ((std::string)(argv[1]) == "q") q_check(100000);
+    if ((std::string)(argv[1]) == "cpp") c_check(n);
+    else if ((std::string)(argv[1]) == "q") q_check(n);
     else {
       std::cerr<<"Arguments are cpp or q"<<std::endl;
       return 1;

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <chrono>
 
+const size_t RPT = 100;
+
 extern "C" {
   typedef struct {void * p;} *array;
 
@@ -27,7 +29,7 @@ array q_mk_array(int n) {
 void q_check(array a,int first, int last) {
   for (size_t i = 1 ; i+1 < last-first ; ++i) {
     if (getarray(a,first+i-1) == getarray(a,first+i)) {
-      std::cerr<<"q reverse failed"<<std::endl;
+      std::cerr<<"q unique failed"<<std::endl;
       exit(1);
     }
   }
@@ -35,9 +37,10 @@ void q_check(array a,int first, int last) {
 
 int q_unique(array a, int n) {
   auto start = std::chrono::system_clock::now();
-  int finalN = unique(a,0,n);
+  int finalN = n;
+  for (size_t rpt=0;rpt<RPT;++rpt) finalN = unique(a,0,finalN);
   auto end = std::chrono::system_clock::now();
-  std::cout<<"Q-uinque took "<<dur(end-start).count()*1000<<"ms"<<std::endl;
+  std::cout<<"Q-unique took "<<dur(end-start).count()*1000<<"ms"<<std::endl;
   return finalN;
 }
 
@@ -76,7 +79,8 @@ void c_check(carray a,int first, int last) {
 
 int c_unique(carray a, int n) {
   auto start = std::chrono::system_clock::now();
-  int finalNum = std::unique(a+0,a+n) - a;
+  int finalNum = n;
+  for (size_t rpt=0;rpt<RPT;++rpt) finalNum = std::unique(a+0,a+finalNum) - a;
   auto end = std::chrono::system_clock::now();
   std::cout<<"CPP-unique took "<<dur(end-start).count()*1000<<"ms"<<std::endl;
   return finalNum;
@@ -92,11 +96,13 @@ void c_check(int n) {
 
 int main(int argc, char **argv) {
 
+  size_t n = 10000000;
+
   if (argc!=2)
-    for (size_t i=0; i<10000000; i= i?i*2:1 ) q_check(i);
+    for (size_t i=0; i<n; i= i?i*2:1 ) q_check(i);
   else {
-    if ((std::string)(argv[1]) == "cpp") c_check(10000000);
-    else if ((std::string)(argv[1]) == "q") q_check(10000000);
+    if ((std::string)(argv[1]) == "cpp") c_check(n);
+    else if ((std::string)(argv[1]) == "q") q_check(n);
     else {
       std::cerr<<"Arguments are cpp or q"<<std::endl;
       return 1;

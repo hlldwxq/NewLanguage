@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <chrono>
 
+const size_t RPT = 101; // MUST BE **ODD** NUMBER
+
+
 extern "C" {
   typedef struct {void * p;} *array;
 
@@ -36,7 +39,7 @@ void q_check(array a, array a_reverse, int first, int last) {
 
 dur q_reverse(array a, int n) {
   auto start = std::chrono::system_clock::now();
-  reverse(a,0,n);
+  for (size_t rpt=0;rpt<RPT;++rpt) reverse(a,0,n);
   auto end = std::chrono::system_clock::now();
   return end-start;
 }
@@ -83,7 +86,7 @@ void c_check(carray a, carray a_reverse, int first, int last) {
 
 dur c_reverse(carray a, int n) {
   auto start = std::chrono::system_clock::now();
-  std::reverse(a+0,a+n);
+  for (size_t rpt=0;rpt<RPT;++rpt) std::reverse(a+0,a+n);
   auto end = std::chrono::system_clock::now();
   return end-start;
 }
@@ -99,12 +102,12 @@ void c_check(int n) {
 
 
 int main(int argc, char **argv) {
-
+  size_t n = 10000000;
   if (argc!=2)
-    for (size_t i=0; i<10000000; i= i?i*2:1 ) q_check(i);
+    for (size_t i=0; i<n; i= i?i*2:1 ) q_check(i);
   else {
-    if ((std::string)(argv[1]) == "cpp") c_check(10000000);
-    else if ((std::string)(argv[1]) == "q") q_check(10000000);
+    if ((std::string)(argv[1]) == "cpp") c_check(n);
+    else if ((std::string)(argv[1]) == "q") q_check(n);
     else {
       std::cerr<<"Arguments are cpp or q"<<std::endl;
       return 1;
