@@ -29,9 +29,9 @@ void PrototypeAST::codegenStructure(){
     QFunction* functionQ = new QFunction(returnType, argsType ,F);
 
     bool success = scope.addFunction(Name,functionQ);
-    if(!success){
-        lerror("the function has been declared");
-    }
+    //if(!success){
+    //    lerror("the function has been declared");
+    //}
 }
 
 void FunctionAST::codegenStructure(){

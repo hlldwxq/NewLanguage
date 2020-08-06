@@ -32,17 +32,24 @@ cleanTest:
 	rm -rf $(DIR_TEST)/validTest/out/*
 	rm -rf $(DIR_TEST)/MeanfulTest/out/*
 	rm -rf $(DIR_TEST)/dynamicCheck/out/*
-	rm -rf $(DIR_TEST)/betchmark/out/*
+	rm -rf $(DIR_TEST)/benchmark/Rust/out/*
 	rm -rf $(DIR_TEST)/invalidTest/other/*.log
 	rm -rf $(DIR_TEST)/invalidTest/typeConvert/*.log
 
+cleanBenchmark:
+	rm -rf $(DIR_TEST)/benchmark/Java/out/*
+	rm -rf $(DIR_TEST)/benchmark/Cpp/out/*
 
 
-B_Q = $(wildcard $(DIR_TEST)/betchmark/*.q)
-B_CPP = $(patsubst %.q, %.cpp, $(B_Q))
-betchmark: llvmir $(B_Q) $(B_CPP) $(DIR_TEST)/betchmark/betchmark.sh
-	$(DIR_TEST)/betchmark/betchmark.sh
 
+B_CPPQ = $(wildcard $(DIR_TEST)/betchmark/CPP/*.q)
+B_CPP = $(patsubst %.q, %.cpp, $(B_CPPQ))
+B_JAVAQ = $(wildcard $(DIR_TEST)/betchmark/Java/*.q)
+B_JAVA = $(patsubst %.q, %.java, $(B_JAVAQ))
+benchmark: llvmir $(B_CPPQ) $(B_CPP) $(B_CPPQ) $(B_CPP) $(DIR_TEST)/benchmark/CPP/CPP.sh $(DIR_TEST)/benchmark/Java/Java.sh
+	$(DIR_TEST)/benchmark/CPP/CPP.sh
+	$(DIR_TEST)/benchmark/Java/Java.sh
+	python diagramData.python
 
 
 

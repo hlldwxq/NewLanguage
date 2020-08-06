@@ -1,4 +1,4 @@
 *.log
-validCodeTest
 *.out
 *.ll
+*.class

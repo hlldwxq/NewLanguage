@@ -10,13 +10,12 @@ template <class T, class T1, class T2, class T3, class T4>
 class Scope{
 
     std::vector<typename std::map<std::string,const T*>> symbolTable;
-    //typename std::map<std::string,T4*> argTable;
     typename std::map<std::string,const T1*> functionTable;
     typename std::map<std::string,const T2*> globalVariable;
     std::vector<const T1*> initFunction; //init global var
     std::map<std::string, llvm::Value*> strLiteral; //str map
     const T3* retType = NULL;
-    llvm::BasicBlock* breakBB = NULL;
+    std::vector<llvm::BasicBlock*> breakBB;
 
 public:
 
@@ -69,11 +68,6 @@ public:
             return false;
         }
 
-        /*std::map<std::string,const T*> &scope1 = symbolTable.front();
-        if(symbolTable.size()==2 && scope1.find(name) != scope1.end()){
-            return false; //cannot get the line number, thus ask codegen to emit error info
-        }*/
-
         if(globalVariable.find(name) != globalVariable.end()){
             return false; //cannot get the line number, thus ask codegen to emit error info
         }
@@ -91,11 +85,6 @@ public:
                 return iter->second;
             }
         }
-
-      /*  typename std::map<std::string,const T*>::iterator iter = argTable.find(name);
-        if(iter != argTable.end()){
-            return iter->second;
-        }*/
         return NULL;
     }
 
@@ -134,8 +123,19 @@ public:
     const T3* getRetType() {assert(retType); return retType;}
     void setRetType(const T3* r) {retType = r;}
 
-    llvm::BasicBlock* getBreakBB(){ return breakBB; }
-    void setBreakBB(llvm::BasicBlock* bb){ breakBB = bb; }
+    llvm::BasicBlock* getBreakBB(){ 
+        if(breakBB.size()<=0){
+            return NULL;
+        }
+        return breakBB[breakBB.size()-1]; 
+    }
+    void setBreakBB(llvm::BasicBlock* bb){
+        if(bb==NULL){
+            breakBB.pop_back();
+        }else{
+            breakBB.push_back(bb);
+        }
+    }
 
 };
 #endif

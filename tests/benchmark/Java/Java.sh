@@ -24,51 +24,65 @@ function prepare() {
   OUTBASE=$OUTDIR/$STEM.$CFGNAME
   mkdir -p "$OUTDIR"
 
-  echo -n "Testing $BASENAME ($CFGNAME), flags $FLAGS: "
-  echo ""
+  JAVAC="javac -d $OUTDIR"
+  JAVA="java -cp $OUTDIR"
 
   # Input files
   # QFILE
+  JAVAFILE="$BASENAME.java"
   CFILE="$BASENAME.cpp"
 
   # Output files
   LLFILE="$OUTBASE.ll"
   OUTFILE="$LLFILE.out"
-  LOGFILE="$LLFILE.log"
+  CLASSFILE=${BASENAME##*/}  
+ 
+  LOGFILE="$OUTBASE.log"
 
   SFILE="$OUTBASE.opt.ll"
   OUTOPTFILE="$SFILE.out"
-  LOGOPTFILE="$SFILE.log"
 
-  CPP="cpp"
   Q="q"
 
-  rm -rf $LLFILE $OUTFILE $LOGFILE
+  JAVASIGN="Java time"
+  QSIGN="q time"
+  QOPTSIGN="q opt time"
+
+  #rm -rf $LLFILE $OUTFILE $LOGFILE
+
+  echo -n "Testing $BASENAME ($CFGNAME), flags $FLAGS: "
+  echo ""
 }
 
 function run(){
 
     # do test first
-    echo "$BASENAME $CFGNAME test"
-    ./"$OUTFILE" > "$LOGFILE" 2>&1 || fail "Running test failed"
+    #: > "$LOGFILE"
 
-    echo "$BASENAME $CFGNAME run cpp/c code"
+    echo "$BASENAME $CFGNAME test"
+    ./"$OUTFILE">/dev/null
+
+    echo "$BASENAME $CFGNAME run java code"
+    echo "$JAVASIGN">>"$LOGFILE"
     for i in $(seq 1 5) 
     do
-        ./"$OUTFILE" "$CPP"
+         $JAVA "$CLASSFILE" | tee -a "$LOGFILE"
     done
 
     echo "$BASENAME $CFGNAME run not opt q code"
+    echo "$QSIGN">>"$LOGFILE"
     for i in $(seq 1 5) 
     do
-        ./"$OUTFILE" "$Q"
+       ./"$OUTFILE" "$Q" | tee -a "$LOGFILE"
     done
 
     echo "$BASENAME $CFGNAME run opt q code"
+    echo "$QOPTSIGN">>"$LOGFILE"
     for i in $(seq 1 5) 
     do
-        ./"$OUTOPTFILE" "$Q"
+        ./"$OUTOPTFILE" "$Q"  | tee -a "$LOGFILE"
     done
+
 }
 
 function compile() {
@@ -82,7 +96,10 @@ function compile() {
 
   # Qiao's original opt test
   opt-10 -S -O3 "$LLFILE">"$SFILE"
-  $CLANG -O2 -o "$OUTOPTFILE" "$CFILE" "$SFILE" 1>$LOGOPTFILE 2>&1 || fail "Clang opt compilation error"
+  $CLANG -O2 -o "$OUTOPTFILE" "$CFILE" "$SFILE" 1>$LOGFILE 2>&1 || fail "Clang opt compilation error"
+
+  # compile java
+  $JAVAC "$JAVAFILE"
 
 }
 
@@ -108,7 +125,7 @@ function do_tests() {
 
 #  do_test tests/betchmark/unique.q
 
-  for i in tests/betchmark/*.q; do
+  for i in tests/benchmark/Java/*.q; do
     do_test $i
   done
 
@@ -117,12 +134,12 @@ function do_tests() {
 do_tests DyCheck dy
 do_tests notDyCheck ndy
 
-do_tests check_arith arith
-do_tests check_array_bound array
-do_tests check_free free
+#do_tests check_arith arith
+#do_tests check_array_bound array
+#do_tests check_free free
 
-do_tests check_arith check_array_bound arith_array
-do_tests check_free	check_array_bound free_array
-do_tests check_free	check_arith free_arith
+#do_tests check_arith check_array_bound arith_array
+#do_tests check_free	check_array_bound free_array
+#do_tests check_free	check_arith free_arith
 
-do_tests check_arith check_free	check_array_bound arith_array_free
+#do_tests check_arith check_free	check_array_bound arith_array_free
