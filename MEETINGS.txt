@@ -1,3 +1,21 @@
+# Aug 7
+
+Qiao implemented Java benchmarks and python script for data extraction.
+Highlight: DualPivot Mergesort in Q!
+
+TODO:
+  * Use SAME data for Q and Java, Q and CPP. Otherwise you compare the runtimes on different data, which might not be fair!
+
+  * read on benchmarking Java code. 'warming up', give the just in time compiler a chance to compile the benchmarked code.
+    Otherwise, you might be benchmarking INTERPRETED code.
+
+  * finish benchmarks, AND AT SAME TIME, START writing thesis
+
+  * Write outlines of chapters for thesis. Roughly 1,2 pgs with detailed content of
+    chapters, or even first version of chapter text.
+
+
+
 # July 31
 
 Qiao implemented benchmark suite with several std::algorithms.
@@ -12,10 +30,10 @@ TODO:
     * make sure no background processes on computer while measuring
     * DONE repeat experiment a few times, take median
     * DONE automate via script!
-    * script should write to LOGFILE (use "tee" to write to screen and logfile)
-    * create nice diagram from logged data, ideally automatically such that adjustments can quickly be made
+    * DONE script should write to LOGFILE (use "tee" to write to screen and logfile)
+    * PART. DONE create nice diagram from logged data, ideally automatically such that adjustments can quickly be made
 
-  * Compare with Java? (Careful to compare SAME algorithms, e.g. java sorting uses some mergesort by default)
+  * DONE Compare with Java? (Careful to compare SAME algorithms, e.g. java sorting uses some mergesort by default)
 
   * DONE Benchmark introsort, heapsort (against C++ heapsort)
 
