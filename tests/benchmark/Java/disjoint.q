@@ -15,31 +15,32 @@ def uint1 contain(uint64* arr, uint64 n, uint64 val){
 }
 
 def uint1 disjoint(uint64* arr1, uint64 n1, uint64* arr2, uint64 n2){
-    uint64* iterate
-    uint64* contains
-
     if(n1==0 | n2==0)
     then{
         return true
     }
 
+    uint64* iterate
+    uint64* contains
+    uint64 n_it
+    uint64 n_cnt
+
+
     if(n1<n2)
     then{
         iterate = arr1
         contains = arr2
-        uint64 n = n1
-        n1 = n2
-        n2 = n
+        n_it = n1
+        n_cnt = n2
     }
     else{
         iterate = arr2
         contains = arr1
-        uint64 n = n1
-        n1 = n2
-        n2 = n
+        n_it = n2
+        n_cnt = n1
     }
-    for uint64 i=0, i<n1, 1{
-        if( contain(contains, n1, iterate[i]) ) #because I use ArrayList in Java code, so I copy the contains func of ArrayList
+    for uint64 i=0, i<n_it, 1{
+        if( contain(contains, n_cnt, iterate[i]) ) #because I use ArrayList in Java code, so I copy the contains func of ArrayList
         then return false
     }
     return true

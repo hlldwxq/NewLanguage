@@ -6,6 +6,14 @@ public class disjoint{
     static int num = 0;
     static int rep = 0;
 
+
+    static long checksum(ArrayList<Integer> a) {
+      long s=0;
+      for (int i=0; i<a.size(); ++i) s+=(((long)i) * a.get(i));
+      return s;
+    }
+
+
     public static void readFile(String fileName, ArrayList<Integer> array1, ArrayList<Integer> array2){
         File file = new File(fileName);
         try (BufferedReader br = new BufferedReader(new FileReader(file));) {
@@ -49,6 +57,8 @@ public class disjoint{
         String fileName = "tests/benchmark/Java/disjoint.txt";
         readFile(fileName, first, second);
 
+        System.out.println("a: " + Long.toUnsignedString(checksum(first)));
+        System.out.println("b: " + Long.toUnsignedString(checksum(second)));
 
         // disjoint
         boolean isDisjoint = true;

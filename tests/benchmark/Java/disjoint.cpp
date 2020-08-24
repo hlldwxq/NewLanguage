@@ -23,6 +23,14 @@ extern "C" {
   bool disjoint(array, uint64_t, array, uint64_t);
 }
 
+uint64_t checksum(array a, size_t n) {
+  uint64_t s=0;
+  for (size_t i=0; i<n; ++i) s+=(i * getarray(a,i));
+  return s;
+}
+
+
+
 typedef std::chrono::duration<double> dur;
 array a;
 array b;
@@ -63,6 +71,8 @@ void q_mk_array() {
     std::cerr << "unenough number" << std::endl;
     exit(1);
   }
+
+  std::cout<<"a: "<<checksum(a,count)<<std::endl<<"b: "<<checksum(b,count)<<std::endl;
 
 }
 
@@ -111,6 +121,7 @@ bool q_disjoint(array a, uint64_t na, array b, uint64_t nb) {
   std::cout<<"Q-disjoint took "<< dur(end-start).count()*1000<<"ms"<<std::endl;
   return result;
 }
+
 
 void q_check() {
 

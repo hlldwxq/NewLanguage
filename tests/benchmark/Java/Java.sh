@@ -104,19 +104,19 @@ function do_tests() {
   fi
 
   
-
-  for i in tests/benchmark/Java/*.q; do
-     do_test $i
-   done
+  do_test tests/benchmark/Java/disjoint.q
+#   for i in tests/benchmark/Java/*.q; do
+#      do_test $i
+#    done
 
 }
 
 do_tests DyCheck dy
-do_tests notDyCheck ndy
-
-do_tests check_arith arith
-do_tests check_array_bound array
-do_tests check_free free
+# do_tests notDyCheck ndy
+#
+# do_tests check_arith arith
+# do_tests check_array_bound array
+# do_tests check_free free
 
 #do_tests check_arith check_array_bound arith_array
 #do_tests check_free	check_array_bound free_array
