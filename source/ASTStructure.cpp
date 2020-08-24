@@ -3,8 +3,19 @@
 #include "../header/ASTCommand.h"
 #include "../header/ASTStructure.h"
 
-
 void PrototypeAST::codegenStructure(){
+    codegenStructure(false);
+}
+void PrototypeAST::codegenStructure(bool hasDef){
+
+    if( hasDef && scope.getFunctionProto(Name) != NULL ){
+        /*
+            do not declare the function twice
+            def void func();
+            def void func(){...}
+        */
+        return;
+    }
 
     std::vector<llvm::Type*> args;
     
@@ -28,22 +39,31 @@ void PrototypeAST::codegenStructure(){
     }
     QFunction* functionQ = new QFunction(returnType, argsType ,F);
 
-    bool success = scope.addFunction(Name,functionQ);
-    //if(!success){
-    //    lerror("the function has been declared");
-    //}
+    bool success = scope.addFunctionProto(Name,functionQ);
+    if(!success){
+        lerror("the function has been declared");
+    }
 }
 
 void FunctionAST::codegenStructure(){
 
-    Proto->codegenStructure();
-    Function* function = scope.getFunction(Proto->getFunctionName())->getFunction();
+    Proto->codegenStructure(true);
+
+    const QFunction* qfunction = scope.getFunctionProto(Proto->getFunctionName());
+    if(qfunction == NULL){
+        lerror("the function has not been declared");
+    }
+
+    Function* function = qfunction->getFunction();
+    scope.removeFunctionProto(Proto->getFunctionName());
+    scope.addFunction(Proto->getFunctionName(),qfunction);
+    
     auto &P = *Proto;
 
     BasicBlock *BB = BasicBlock::Create(TheContext, "entry", function);
     
 	Builder.SetInsertPoint(BB);
-    scope.addScope();
+    scope.addScope(doCheck[CheckLevel::check_free] || doCheck[CheckLevel::check_array_bound]);
 
     scope.setRetType(P.getReturnType());
 
@@ -76,7 +96,8 @@ void FunctionAST::codegenStructure(){
       Builder.CreateRetVoid();
     }
 
-    scope.removeScope();
+    //scope.removeScope();
+    scope.removeScope(doCheck[CheckLevel::check_free] || doCheck[CheckLevel::check_array_bound]);
 
 }
 

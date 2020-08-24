@@ -289,7 +289,9 @@ QValue* CallExprAST::codegen_internal(bool is_cmd) {
 
     const QFunction* call = scope.getFunction(functionName);
     if(!call){
-        ExprAST::lerror("the function has not been declared");
+        call = scope.getFunctionProto(functionName);
+        if(!call)
+            ExprAST::lerror("the function has not been declared");
     }
     Function* func = call->getFunction();
     std::vector<QType*> argsType = call->getArgsType();

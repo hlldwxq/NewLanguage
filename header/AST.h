@@ -263,7 +263,6 @@ public:
 
 };
 
-
 class PointType : public QType{
     QType* elementType;
     bool isnull;
@@ -386,8 +385,10 @@ public:
 };
 
 class QAlloca{
+    
     QType* qtype;
     llvm::Value* allocaI;
+
 public:
     QAlloca(QType* qt,llvm::Value* a){
         qtype = qt;
@@ -399,6 +400,7 @@ public:
     llvm::Value* getAlloca() const{
         return allocaI;
     }
+
 };
 
 class QFunction{

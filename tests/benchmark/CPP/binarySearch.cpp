@@ -4,7 +4,7 @@
 #include <chrono>
 
 
-const size_t RPT = 1000000;
+const size_t RPT = 15000000;
 
 extern "C" {
   typedef struct {void * p;} *array;
@@ -41,10 +41,14 @@ void q_check_search(array a, int n, int val,bool b) {
 }
 
 bool q_search(array a, int n, int val) {
-  auto start = std::chrono::system_clock::now();
   bool b;
-  for (size_t rpt=0;rpt<RPT;++rpt) b = q_binary_search(a, 0, n, val);
+  auto start = std::chrono::system_clock::now();
+  
+  for (size_t rpt=0;rpt<RPT;++rpt) 
+    b = q_binary_search(a, 0, n, val);
+    
   auto end = std::chrono::system_clock::now();
+
   std::cout<<"Q-search took "<<dur(end-start).count()*1000<<"ms"<<std::endl;
   return b;
 }
@@ -89,9 +93,12 @@ void c_check_search(carray a, int n, int val, bool b) {
 }
 
 bool c_search(carray a, int n, int val) {
-  auto start = std::chrono::system_clock::now();
   bool b;
-  for (size_t rpt=0;rpt<RPT;++rpt) b = std::binary_search(a+0,a+n,val);
+  auto start = std::chrono::system_clock::now();
+
+  for (size_t rpt=0;rpt<RPT;++rpt) 
+    b = std::binary_search(a+0,a+n,val);
+
   auto end = std::chrono::system_clock::now();
   std::cout<<"C-search took "<<dur(end-start).count()*1000<<"ms"<<std::endl;
   return b;

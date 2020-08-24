@@ -36,9 +36,12 @@ void q_check_sorted(array a, int n) {
 }
 
 dur q_sort(array a, int n) {
+  int rep = 5;
   auto start = std::chrono::system_clock::now();
-  make_heap(a,0,n);
-  sort_heap(a,0,n);
+  for(int i=0; i<rep ;i++){
+    make_heap(a,0,n);
+    sort_heap(a,0,n);
+  }
   auto end = std::chrono::system_clock::now();
   return end-start;
 }
@@ -73,9 +76,12 @@ void c_check_sorted(carray a, int n) {
 }
 
 dur c_sort(carray a, int n) {
+  int rep = 5;
   auto start = std::chrono::system_clock::now();
-  std::make_heap(a+0,a+n);
-  std::sort_heap(a+0,a+n);
+  for(int i=0;i<rep;i++){
+    std::make_heap(a+0,a+n);
+    std::sort_heap(a+0,a+n);
+  }
   //std::sort(a+0,a+n);
   auto end = std::chrono::system_clock::now();
   return end-start;
@@ -92,7 +98,7 @@ void c_check(int n) {
 
 int main(int argc, char **argv) {
 
-  size_t n = 1000000;
+  size_t n = 1500000;
 
   if (argc!=2)
     for (size_t i=0; i<n; i= i?i*2:1 ) q_check(i);

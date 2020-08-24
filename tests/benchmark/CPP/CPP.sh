@@ -36,16 +36,16 @@ function prepare() {
   OUTFILE="$LLFILE.out"
   LOGFILE="$LLFILE.log"
 
-  SFILE="$OUTBASE.opt.ll"
-  OUTOPTFILE="$SFILE.out"
-  LOGOPTFILE="$SFILE.log"
+  #SFILE="$OUTBASE.opt.ll"
+  #OUTOPTFILE="$SFILE.out"
+  #LOGOPTFILE="$SFILE.log"
 
   CPP="cpp"
   Q="q"
 
-  CPPSIGN="cpp time"
-  QSIGN="q time"
-  QOPTSIGN="q opt time"
+  CPPSIGN="cpp_time"
+  QSIGN="q_time"
+  #QOPTSIGN="q opt time"
 
   rm -rf $LLFILE $OUTFILE $LOGFILE
 }
@@ -65,19 +65,19 @@ function run(){
        ./"$OUTFILE" "$CPP" | tee -a "$LOGFILE"
     done
 
-    echo "$BASENAME $CFGNAME run not opt q code"
+    echo "$BASENAME $CFGNAME run q code"
     echo "$QSIGN">>"$LOGFILE"
     for i in $(seq 1 5) 
     do
        ./"$OUTFILE" "$Q" | tee -a "$LOGFILE"
     done
 
-    echo "$BASENAME $CFGNAME run opt q code"
-    echo "$QOPTSIGN">>"$LOGFILE"
-    for i in $(seq 1 5) 
-    do
-        ./"$OUTOPTFILE" "$Q"  | tee -a "$LOGFILE"
-    done
+   # echo "$BASENAME $CFGNAME run opt q code"
+   # echo "$QOPTSIGN">>"$LOGFILE"
+   # for i in $(seq 1 5) 
+   # do
+   #     ./"$OUTOPTFILE" "$Q"  | tee -a "$LOGFILE"
+   # done
 }
 
 function compile() {
@@ -90,8 +90,8 @@ function compile() {
   # $CLANG -O3 -o "$OUTOPTFILE" "$CFILE" "$LLFILE" 1>$LOGOPTFILE 2>&1 || fail "Clang compilation error"
 
   # Qiao's original opt test
-  opt-10 -S -O3 "$LLFILE">"$SFILE"
-  $CLANG -O2 -o "$OUTOPTFILE" "$CFILE" "$SFILE" 1>$LOGFILE 2>&1 || fail "Clang opt compilation error"
+  # opt-10 -S -O3 "$LLFILE">"$SFILE"
+  # $CLANG -O2 -o "$OUTOPTFILE" "$CFILE" "$SFILE" 1>$LOGFILE 2>&1 || fail "Clang opt compilation error"
 
 }
 
@@ -127,9 +127,9 @@ function do_tests() {
 do_tests DyCheck dy
 do_tests notDyCheck ndy
 
-#do_tests check_arith arith
-#do_tests check_array_bound array
-#do_tests check_free free
+do_tests check_arith arith
+do_tests check_array_bound array
+do_tests check_free free
 
 #do_tests check_arith check_array_bound arith_array
 #do_tests check_free	check_array_bound free_array

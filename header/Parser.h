@@ -113,6 +113,7 @@ enum class Token
 	assignment,           // =
 	semicolon,			  // ;
 	quotation_mark,       // '
+	point,                // .
 	error_token
 };
 

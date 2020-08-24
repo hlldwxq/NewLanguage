@@ -11,6 +11,7 @@ void FreeAST::codegenCommand(){
     }
     if(doCheck[CheckLevel::check_free]){
         
+        scope.addFreedPtr(p->getValue());
         Value* arrayAddPtr;
 
         Value* arraySize = Builder.CreateStructGEP(p->getValue(),0);
@@ -25,8 +26,7 @@ void FreeAST::codegenCommand(){
         //store null
         Value* nullValue = Constant::getNullValue(array->getType());
         Builder.CreateStore(nullValue,arrayAddPtr);
-    }
-    else{
+    }else{
         Instruction* var_free = CallInst::CreateFree(p->getValue(),Builder.GetInsertBlock());
         Builder.Insert(var_free);
     }
@@ -98,13 +98,13 @@ void ReturnAST::codegenCommand(){
 
 void BlockAST::codegenCommand(){
 
-    scope.addScope();
+    scope.addScope(doCheck[CheckLevel::check_free] || doCheck[CheckLevel::check_array_bound]);
     for(int i=0 ; i < cmds.size(); i++){
         cmds[i]->codegenCommand();
 
     }
-    
-    scope.removeScope();
+
+    scope.removeScope(doCheck[CheckLevel::check_free] || doCheck[CheckLevel::check_array_bound]);
 
 }
 
@@ -159,7 +159,7 @@ void ForAST::codegenCommand(){
 
     Function *TheFunction = Builder.GetInsertBlock()->getParent();
 	
-    scope.addScope(); //this scope is for the start variable
+    scope.addScope(doCheck[CheckLevel::check_free] || doCheck[CheckLevel::check_array_bound]); //this scope is for the start variable
 
 	// Emit the start code first, without 'variable' in scope.
     const QType* startType = start->getType();
@@ -209,7 +209,7 @@ void ForAST::codegenCommand(){
 	// Emit after block.
 	Builder.SetInsertPoint(AfterBB);
 
-    scope.removeScope();
+    scope.removeScope(doCheck[CheckLevel::check_free] || doCheck[CheckLevel::check_array_bound]);
     scope.setBreakBB(NULL);
 
 }

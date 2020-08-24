@@ -106,15 +106,19 @@ Token Parser::gettok(){
             return Token::tok_ui64;
         if(IdentifierStr == "uint128")
             return Token::tok_ui128;
-        if(IdentifierStr == "string"){
+        if(IdentifierStr == "string")
             return Token::tok_stringType;
-        }
+       // if(IdentifierStr == "struct")
+       //     return Token::tok_struct;
         if(IdentifierStr == "true")
             return Token::tok_true;
         if(IdentifierStr == "false")
             return Token::tok_false;	
         return Token::tok_identifier;
     }
+
+    if(LastChar == '.')
+        return Token::point;
 
     // Number: [0-9]+
     if (isdigit(LastChar)){ 

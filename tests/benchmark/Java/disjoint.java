@@ -1,18 +1,54 @@
 import java.util.Random;
 import java.util.Collections;
 import java.util.ArrayList;
+import java.io.*;
 public class disjoint{
-    static int num = 10000;
-    static int rep = 10;
+    static int num = 0;
+    static int rep = 0;
+
+    public static void readFile(String fileName, ArrayList<Integer> array1, ArrayList<Integer> array2){
+        File file = new File(fileName);
+        try (BufferedReader br = new BufferedReader(new FileReader(file));) {
+            
+            String line = null;
+
+            line = br.readLine();  //num count
+            num = Integer.valueOf(line);
+
+            line = br.readLine();  //rep
+            rep = Integer.valueOf(line);
+
+            int i=0;
+            while (i<num && (line = br.readLine()) != null) {
+                array1.add(Integer.valueOf(line));
+                i++;
+            }
+
+            i=0;
+            while (i<num && (line = br.readLine()) != null) {
+                array2.add(Integer.valueOf(line));
+                i++;
+            }
+
+            if(i!=num){
+                System.out.println("not enough number");
+                System.exit(1);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
     public static void main(String[] args){
         // make array
         ArrayList<Integer> first = new ArrayList<Integer>();
         ArrayList<Integer> second = new ArrayList<Integer>();
-        Random random = new Random(num);
-        for(int i=0 ; i<num; i++){
-            first.add(random.nextInt());
-            second.add(random.nextInt());
-        }
+
+        String fileName = "tests/benchmark/Java/disjoint.txt";
+        readFile(fileName, first, second);
+
 
         // disjoint
         boolean isDisjoint = true;
@@ -25,9 +61,10 @@ public class disjoint{
 
         // check disjoint
         boolean test = true;
-        for(int i=0 ; i < num; i++){
-            for(int j=0 ; j < num; j++){
-                if(first.get(i)== second.get(j)){
+        for(int i=0 ; i < first.size(); i++){
+            for(int j=0 ; j < second.size(); j++){
+ 
+                if((int)first.get(i) == (int)second.get(j)){
                     test = false;
                     break;
                 }

@@ -10,26 +10,21 @@ template <class T, class T1, class T2, class T3, class T4>
 class Scope{
 
     std::vector<typename std::map<std::string,const T*>> symbolTable;
+    std::vector<llvm::Value*> freedTable;
+
+    typename std::map<std::string,const T1*> functionProto;
     typename std::map<std::string,const T1*> functionTable;
-    typename std::map<std::string,const T2*> globalVariable;
     std::vector<const T1*> initFunction; //init global var
+
+    typename std::map<std::string,const T2*> globalVariable;
+    
     std::map<std::string, llvm::Value*> strLiteral; //str map
+    
     const T3* retType = NULL;
     std::vector<llvm::BasicBlock*> breakBB;
 
 public:
 
-    void addStr(std::string str, llvm::Value* s){
-        strLiteral[str] = s;
-    }
-
-    llvm::Value* findStr(std::string str){
-        typename std::map<std::string,llvm::Value*>::iterator iter = strLiteral.find(str);
-        if(iter != strLiteral.end()){
-            return iter->second;
-        }
-        return NULL;
-    }
 
     void addInitFunction(T1* f){
         initFunction.push_back(f);
@@ -39,7 +34,35 @@ public:
         return initFunction;
     }
 
-    bool addFunction(std::string name, T1* qf){
+    bool addFunctionProto(std::string name, const T1* qf){
+        
+        std::string fn = name;
+       
+        if(functionProto.find(fn)!=functionProto.end()){
+            return false;
+        }else{
+            if(functionTable.find(fn)!=functionTable.end()){
+                return false; //cannot get the line number, thus ask codegen to emit error info
+            }
+        }
+        functionProto[fn] = qf;
+        return true;
+    }
+
+    const T1* getFunctionProto(std::string fname){
+        if(functionProto.find(fname)!=functionProto.end()){
+            return functionProto[fname]; //cannot get the line number, thus ask codegen to emit error info
+        }
+        return NULL;
+    }
+
+    const void removeFunctionProto(std::string fname){
+        if(functionProto.find(fname)!=functionProto.end()){
+            functionProto.erase(functionProto.find(fname));
+        }
+    }
+
+    bool addFunction(std::string name, const T1* qf){
         std::string fn = name;
         if(functionTable.find(fn)!=functionTable.end()){
             return false; //cannot get the line number, thus ask codegen to emit error info
@@ -56,7 +79,7 @@ public:
     }
 
     bool addSymbol(std::string name , T* Alloca){
-        if(symbolTable.size()==0) {printf("no scope"); exit(1);}
+        assert(symbolTable.size()!=0);
 
         std::map<std::string,const T*> &scope = symbolTable.back();
         if(scope.find(name) != scope.end()){
@@ -88,15 +111,30 @@ public:
         return NULL;
     }
 
-    void addScope(){
+    void addFreedPtr(llvm::Value* ptr){
+        std::cout<<"; add" <<std::endl;
+        freedTable.push_back(ptr);
+    }
+
+    void addScope(bool arrayCheck){
         symbolTable.push_back(std::map<std::string,const T*>());
     }
 
-    bool removeScope(){
-        if(symbolTable.size()==0){
-            return false;
+    bool removeScope(bool arrayCheck){
+        
+        assert(symbolTable.size()!=0);
+        symbolTable.pop_back();
+        
+        if(symbolTable.size() == 1 && arrayCheck){
+            for (auto iter : freedTable){
+                std::cout<< "; free" <<std::endl;
+                llvm::Instruction* struct_free = llvm::CallInst::CreateFree(iter , Builder.GetInsertBlock());
+                Builder.Insert(struct_free);
+            }
+
+            freedTable.clear();
         }
-        symbolTable.pop_back(); 
+
         if(symbolTable.size() == 0){
           retType=NULL;
         }
@@ -116,6 +154,19 @@ public:
         if(globalVariable.find(name)!=globalVariable.end()){
             return globalVariable[name]; 
             //cannot get the line number, thus ask codegen to emit error info
+        }
+        return NULL;
+    }
+
+    
+    void addStr(std::string str, llvm::Value* s){
+        strLiteral[str] = s;
+    }
+
+    llvm::Value* findStr(std::string str){
+        typename std::map<std::string,llvm::Value*>::iterator iter = strLiteral.find(str);
+        if(iter != strLiteral.end()){
+            return iter->second;
         }
         return NULL;
     }

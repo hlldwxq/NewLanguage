@@ -25,6 +25,7 @@ public:
         return returnType;
     }
     void codegenStructure();
+    void codegenStructure(bool hasDef);
 };
 
 /// FunctionAST - This class represents a function definition itself.

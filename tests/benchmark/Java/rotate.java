@@ -1,20 +1,57 @@
 import java.util.Random;
 import java.util.Collections;
 import java.util.ArrayList;
+import java.io.*;
+
 public class rotate{
-    static int num = 1000000; 
-    static int rep = 101;
+    static int num = 0;
+    static int rep = 0;
+    static int rotateLocation = 0;
+
+    public static int[] readFile(String fileName, int[] array){
+        File file = new File(fileName);
+        
+        try (BufferedReader br = new BufferedReader(new FileReader(file));) {
+            String line = null;
+
+            line = br.readLine();  //num count
+            num = Integer.valueOf(line);
+
+            line = br.readLine();  //rep
+            rep = Integer.valueOf(line);
+
+            line = br.readLine();  //rep
+            rotateLocation = Integer.valueOf(line);
+            
+            array = new int[num];
+            int i=0;
+            while (i<num && (line = br.readLine()) != null) {
+                array[i] = Integer.valueOf(line);
+                i++;
+            }
+
+            if(i!=num){
+                System.out.println("not enough number");
+                System.exit(1);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return array;
+    }
+
     public static void main(String[] args){
         // make array
-        int[] array = new int[num];
+        int[] array = null;
         ArrayList<Integer> rotate = new ArrayList<Integer>();
-        Random random = new Random(num);
+        
+        String fileName = "tests/benchmark/Java/rotate.txt";
+        array = readFile(fileName, array);
+
         for(int i=0 ; i<array.length; i++){
-            int temp = random.nextInt();
-            array[i] = temp;
-            rotate.add(temp);
+            rotate.add(array[i]);
         }
-        int rotateLocation = random.nextInt(num);
 
         // rotate
         long begintime = System.nanoTime();
@@ -45,4 +82,3 @@ public class rotate{
         System.out.println("Java rotate takes "+ String.valueOf(costTime) +"ms");
     }
 }
-

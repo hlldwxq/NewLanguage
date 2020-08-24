@@ -1,5 +1,7 @@
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
+#include <string>
 #include <algorithm>
 #include <chrono>
 
@@ -21,15 +23,48 @@ extern "C" {
 }
 
 typedef std::chrono::duration<double> dur;
-int count = 10000000;
-int rep = 11;
+int count;
+int rep;
 
-array q_mk_array(int n) {
-  array a = newarray(n);
-  srand(0);
-  for (size_t i=0;i<n;++i){
-    setarray(a,i,rand());
+array q_mk_array() {
+
+
+  std::ifstream in("tests/benchmark/Java/reverse.txt");
+  std::string s;
+
+  getline(in,s);  //count
+  count = stoi(s);
+
+  array a = newarray(count);
+
+  getline(in,s);  //rep
+  rep = stoi(s);
+  
+  int i = 0;
+  while(i<count && getline(in, s)){
+    setarray(a,i++,stoi(s));
   }
+  if(i!=count){
+    std::cerr << "unenough number" << std::endl;
+    exit(1);
+  }
+
+  return a;
+}
+
+array q_mk_array(int num) {
+
+  array a = newarray(num);
+
+  int i = 0;
+  srand(0);
+  while(i<num){
+    setarray(a,i++,rand());
+  }
+  
+  count = num;
+  rep = 1;
+
   return a;
 }
 
@@ -62,13 +97,23 @@ void q_check(int n) {
   q_check_reverse(a,b,n);
 }
 
+void q_check() {
+  array a = q_mk_array();
+  array b = newarray(count);
+  for(int i=0; i<count; i++){
+    setarray(b,i,getarray(a,i));
+  }
+  q_reverse(a,count);
+  q_check_reverse(a,b,count);
+}
+
 int main(int argc, char **argv) {
 
   if (argc!=2){
     for (size_t i=1; i<count; i= i*2 ) q_check(i);
   }
   else {
-    if ((std::string)(argv[1]) == "q") q_check(count);
+    if ((std::string)(argv[1]) == "q") q_check();
     else {
       std::cerr<<"Arguments should be q"<<std::endl;
       return 1;

@@ -2,6 +2,8 @@
 #include <iostream>
 #include <algorithm>
 #include <chrono>
+#include <fstream>
+#include <string>
 
 void prs(char* s){
   printf("%s",s);
@@ -20,16 +22,47 @@ extern "C" {
 }
 
 typedef std::chrono::duration<double> dur;
-int count = 100000;
-int rep = 100;
-array q_mk_array(int n) {
-  srand(0);
-  array a = newarray(n);
-  for (size_t i=0;i<n;++i){
-    int rnd = rand();
-    setarray(a,i,rnd);
-  }
+int count;
+int rep;
 
+array q_mk_array(int num) {
+
+  array a = newarray(num);
+
+  int i = 0;
+  srand(0);
+  while(i<num){
+    setarray(a,i++,rand());
+  }
+  
+  count = num;
+  rep = 1;
+
+  return a;
+}
+
+array q_mk_array() {
+
+  
+  std::ifstream in("tests/benchmark/Java/sort.txt");
+  std::string s;
+
+  getline(in,s);  //count
+  count = stoi(s);
+  
+  array a = newarray(count);
+  
+  getline(in,s);  //rep
+  rep = stoi(s);
+  
+  int i = 0;
+  while(i<count && getline(in, s)){
+    setarray(a,i++,stoi(s));
+  }
+  if(i!=count){
+    std::cerr << "unenough number" << std::endl;
+    exit(1);
+  }
   return a;
 }
 
@@ -38,7 +71,7 @@ void q_check_sorted(array a, int n) {
   for (size_t i=0;i+1<n;++i) {
     if (getarray(a,i) > getarray(a,i+1)) {
       std::cout<<getarray(a,i) <<" "<<getarray(a,i+1)<<std::endl;
-      std::cerr<<"q introsort failed"<<std::endl;
+      std::cerr<<"q sort failed"<<std::endl;
       exit(1);
     }
   }
@@ -56,7 +89,15 @@ void q_check(int n) {
 
   auto a = q_mk_array(n);
   auto t = q_sort(a,n);
-  //q_check_sorted(a,n);
+  q_check_sorted(a,n);
+  std::cout<<"Q-introsort took "<<t.count()*1000<<"ms"<<std::endl;
+}
+
+void q_check() {
+
+  auto a = q_mk_array();
+  auto t = q_sort(a,count);
+  q_check_sorted(a,count);
   std::cout<<"Q-introsort took "<<t.count()*1000<<"ms"<<std::endl;
 }
 
@@ -70,7 +111,7 @@ int main(int argc, char **argv) {
     }
   }
   else {
-    if ((std::string)(argv[1]) == "q") q_check(count);
+    if ((std::string)(argv[1]) == "q") q_check();
     else {
       std::cerr<<"Arguments should be q"<<std::endl;
       return 1;

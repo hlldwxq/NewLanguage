@@ -90,13 +90,15 @@ std::unique_ptr<StructureAST> Parser::ParseProtoOrFunction(){
 }
 
 std::unique_ptr<StructureAST> Parser::ParseStructure(){
+    
     if(CurTok == Token::tok_def){
         return ParseProtoOrFunction();
     
-    }else if(isType()){
+    }
+    else if(isType()){
         return ParseVariableDef(true);
     }
     error("unexpected word at line: "+std::to_string(lineN));
-   // ErrorQ("unexpected word",lineN);
-   // return nullptr;
+
 }
+
