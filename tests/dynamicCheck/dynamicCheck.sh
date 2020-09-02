@@ -116,18 +116,17 @@ function do_tests_array() {
 
 }
 
- do_tests dy DyCheck &
- do_tests arith_array_free check_arith check_free	check_array_bound  &
+ do_tests dy DyCheck
+ do_tests arith_array_free check_arith check_free	check_array_bound
 
- do_tests_arith arith check_arith  &
- do_tests_arith arith_array check_arith check_array_bound  &
- do_tests_arith arith_array check_arith check_free  &
+ do_tests_arith arith check_arith
+ do_tests_arith arith_array check_arith check_array_bound
+ do_tests_arith arith_array check_arith check_free
 
- do_tests_array array check_array_bound  &
- do_tests_array arith_array check_arith check_array_bound  &
- do_tests_array free_array check_free	check_array_bound  &
+ do_tests_array array check_array_bound
+ do_tests_array arith_array check_arith check_array_bound
+ do_tests_array free_array check_free	check_array_bound
 
- do_tests_free free check_free  &
- do_tests_free free_array check_free check_array_bound  &
- do_tests_free free_arith check_free check_arith &
- wait
+ do_tests_free free check_free
+ do_tests_free free_array check_free check_array_bound
+ do_tests_free free_arith check_free check_arith
